@@ -321,7 +321,7 @@ func TestClaudeDuplicateLoginRecoveryFailureKeepsOriginalBinding(t *testing.T) {
 				if got.PendingLogin != login.ID {
 					t.Fatal("locked login was enrolled")
 				}
-			} else if !strings.Contains(s.claudeAccounts.loginNotice, "重新登录") {
+			} else if !strings.Contains(s.claudeAccounts.loginNotice, "войдите заново") {
 				t.Fatal("failed recovery gave no actionable login instruction")
 			}
 		})

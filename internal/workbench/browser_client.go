@@ -99,15 +99,15 @@ func (c *browserClient) request(ctx context.Context, token, method, path string,
 	response, err := c.open(ctx, token, method, path, "application/json", reader, int64(len(body)), timeout)
 	if err != nil {
 		diagnostics.Log("warn", "browser", fmt.Sprintf("operation=%s transport=%v", path, err))
-		return nil, usererror.Wrap(browserOperation(path), err, "请确认环境仍在运行，并重新连接浏览器；持续失败时在设置中导出诊断包。")
+		return nil, usererror.Wrap(browserOperation(path), err, "Убедитесь, что среда работает, и переподключите браузер; если ошибка повторяется, экспортируйте диагностический пакет в настройках.")
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(response.Body, browserResponseLimit+1))
 	if err != nil {
-		return nil, usererror.Wrap(browserOperation(path), err, "浏览器结果没有完整返回，请重新连接后核对本次操作是否已生效。")
+		return nil, usererror.Wrap(browserOperation(path), err, "Ответ браузера получен не полностью. Переподключитесь и проверьте, применилась ли операция.")
 	}
 	if len(data) > browserResponseLimit {
-		return nil, errors.New(browserOperation(path) + "失败：浏览器返回的数据超过 1 MiB，已停止读取。请关闭不再使用的标签页或扩展后再试；持续出现时导出诊断包。")
+		return nil, errors.New(browserOperation(path) + ": ответ браузера превышает 1 MiB, чтение остановлено. Закройте неиспользуемые вкладки или расширения и повторите; если ошибка повторяется, экспортируйте диагностический пакет.")
 	}
 	if response.StatusCode != http.StatusOK {
 		diagnostics.Log("warn", "browser", fmt.Sprintf("operation=%s http=%d", path, response.StatusCode))
@@ -116,27 +116,27 @@ func (c *browserClient) request(ctx context.Context, token, method, path string,
 		}
 		_ = json.Unmarshal(data, &result)
 		known := map[string]string{
-			"Tab no longer exists": "标签页已关闭。请重新打开网页后再操作。",
-			"Browser is starting":  "浏览器仍在启动。请等待启动完成后再操作。",
-			"Input target changed": "接收内容的页面已切换。请回到原页面并重新点击输入框。",
-			"Image target changed": "接收图片的页面已切换。请回到原页面并重新点击输入框。",
-			"Copy target changed":  "要复制内容的页面已切换。请回到原页面重新复制。",
-			"Image too large":      "图片超过允许大小。请缩小图片后重新粘贴。",
-			"Invalid PNG":          "图片不是有效的 PNG 文件。请重新复制或导出图片。",
-			"Only HTTP(S) URLs without credentials are accepted":         "网址中包含账号或密码。请使用不带登录凭据的 http 或 https 网址。",
-			"Only HTTP(S) URLs and supported browser pages are accepted": "不支持这个网址类型。请使用 http 或 https 网址。",
-			"Unknown browser action":                                     "浏览器组件不支持这次操作。请更新环境组件后再试。",
-			"Split controller unavailable":                               "分屏组件没有就绪。请更新环境组件后重新打开分屏。",
-			"Editor authentication is unavailable":                       "编辑器的本地登录会话不可用。请从 Cage 重新打开编辑器。",
-			"文件接收网页已切换，请返回原网页重试":                                         "文件接收网页已切换，请返回原网页重试。",
-			"浏览器组件未能恢复，请重启环境":                                            "浏览器组件未能恢复，请保存工作后重启环境。",
-			"不同浏览会话不能分屏":                                                 "所选页面属于不同浏览会话，无法放在同一个分屏中。请在同一会话中打开两个网页。",
-			"无痕标签暂不支持双网页分屏":                                              "无痕标签暂不支持双网页分屏。请使用普通标签页。",
-			"设置页请在单个浏览器窗格内使用":                                            "设置页请在单个浏览器窗格内使用。请先退出分屏。",
-			"扩展 ZIP 不能超过 32 MB":                                          "扩展 ZIP 不能超过 32 MB。请缩小扩展包后重新导入。",
+			"Tab no longer exists": "Вкладка закрыта. Снова откройте веб-страницу и повторите.",
+			"Browser is starting":  "Браузер ещё запускается. Дождитесь завершения запуска.",
+			"Input target changed": "Страница получения содержимого изменилась. Вернитесь на исходную страницу и снова нажмите поле ввода.",
+			"Image target changed": "Страница получения изображения изменилась. Вернитесь на исходную страницу и снова нажмите поле ввода.",
+			"Copy target changed":  "Страница копирования изменилась. Вернитесь на исходную страницу и скопируйте заново.",
+			"Image too large":      "Изображение превышает допустимый размер. Уменьшите его и вставьте снова.",
+			"Invalid PNG":          "Файл не является допустимым PNG. Скопируйте или экспортируйте изображение заново.",
+			"Only HTTP(S) URLs without credentials are accepted":         "URL содержит имя пользователя или пароль. Используйте URL http или https без учётных данных.",
+			"Only HTTP(S) URLs and supported browser pages are accepted": "Этот тип URL не поддерживается. Используйте URL http или https.",
+			"Unknown browser action":                                     "Компонент браузера не поддерживает эту операцию. Обновите компоненты среды и повторите.",
+			"Split controller unavailable":                               "Компонент разделённого экрана не готов. Обновите компоненты среды и снова откройте разделение.",
+			"Editor authentication is unavailable":                       "Локальная сессия входа редактора недоступна. Снова откройте редактор из Cage.",
+			"文件接收网页已切换，请返回原网页重试":                                         "Страница получения файла изменилась. Вернитесь на исходную страницу и повторите.",
+			"浏览器组件未能恢复，请重启环境":                                            "Компонент браузера не восстановился. Сохраните работу и перезапустите среду.",
+			"不同浏览会话不能分屏":                                                 "Страницы из разных сеансов браузера нельзя объединить в разделённый экран. Откройте обе страницы в одном сеансе.",
+			"无痕标签暂不支持双网页分屏":                                              "Разделённый экран с двумя страницами пока не поддерживается для вкладок инкогнито. Используйте обычные вкладки.",
+			"设置页请在单个浏览器窗格内使用":                                            "Страницу настроек используйте в одной панели браузера. Сначала выйдите из разделённого экрана.",
+			"扩展 ZIP 不能超过 32 MB":                                          "ZIP-архив расширения не должен превышать 32 MB. Уменьшите пакет и импортируйте снова.",
 		}
 		if reason := known[result.Error]; reason != "" {
-			return nil, errors.New(browserOperation(path) + "失败：" + reason)
+			return nil, errors.New(browserOperation(path) + ": " + reason)
 		}
 		return nil, serviceHTTPFailure(browserOperation(path), response.StatusCode)
 	}
@@ -150,7 +150,7 @@ func (c *browserClient) events(ctx context.Context, token string) (io.ReadCloser
 	}
 	if response.StatusCode != http.StatusOK {
 		response.Body.Close()
-		return nil, serviceHTTPFailure("接收浏览器状态", response.StatusCode)
+		return nil, serviceHTTPFailure("Получение состояния браузера", response.StatusCode)
 	}
 	return response.Body, nil
 }

@@ -26,20 +26,20 @@ func (s *Server) macOSAudioStatus(w http.ResponseWriter, r *http.Request) {
 		Error     string `json:"error"`
 	}
 	if cmd.Run() != nil || json.Unmarshal(data.Bytes(), &status) != nil {
-		http.Error(w, "虚拟 Mac 声音组件尚未连接，请先完成客机组件更新", http.StatusBadGateway)
+		http.Error(w, "Компонент звука виртуального Mac ещё не подключён. Сначала обновите компоненты гостевой системы", http.StatusBadGateway)
 		return
 	}
 	if status.Reason == "" {
 		status.Reason = status.Error
 	}
 	if !status.Supported && status.Reason != "requires_gui_login" && status.Reason != "screen_recording_permission" {
-		http.Error(w, "虚拟 Mac 声音组件尚未连接，请先完成客机组件更新", http.StatusBadGateway)
+		http.Error(w, "Компонент звука виртуального Mac ещё не подключён. Сначала обновите компоненты гостевой системы", http.StatusBadGateway)
 		return
 	}
 	if !status.Available {
-		message := "请先登录并解锁虚拟 Mac 的普通账户"
+		message := "Сначала войдите в обычную учётную запись виртуального Mac и разблокируйте её"
 		if status.Reason == "screen_recording_permission" {
-			message = "请在虚拟 Mac 的系统设置中允许 Cage Guest Window 录制屏幕和系统声音"
+			message = "В настройках системы виртуального Mac разрешите Cage Guest Window запись экрана и системного звука"
 		}
 		http.Error(w, message, http.StatusConflict)
 		return
@@ -52,26 +52,26 @@ func (s *Server) macOSAudioCapture(w http.ResponseWriter, r *http.Request, ctx c
 	cmd.Stderr = io.Discard
 	input, err := cmd.StdinPipe()
 	if err != nil {
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить соединение со звуком", http.StatusBadGateway)
 		return
 	}
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
 		input.Close()
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить соединение со звуком", http.StatusBadGateway)
 		return
 	}
 	if err = cmd.Start(); err != nil {
 		input.Close()
 		pipe.Close()
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить соединение со звуком", http.StatusBadGateway)
 		return
 	}
 	defer func() { cancel(); input.Close(); pipe.Close(); _ = cmd.Wait() }()
 	// Keep the request side open until cancellation so the guest can distinguish
 	// a live, output-only subscriber from a disconnected SSH client.
 	if _, err = io.WriteString(input, "{\"action\":\"audio-capture\"}\n"); err != nil {
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить соединение со звуком", http.StatusBadGateway)
 		return
 	}
 	deadlineDone := make(chan struct{})
@@ -80,7 +80,7 @@ func (s *Server) macOSAudioCapture(w http.ResponseWriter, r *http.Request, ctx c
 	err = readAudioReady(reader)
 	stopped := cancelWindowsAdmissionDeadline(deadline, deadlineDone)
 	if err != nil || !stopped {
-		http.Error(w, "虚拟 Mac 声音未能启动，请确认客机已解锁并允许 Cage Guest Window 录制屏幕和系统声音", http.StatusBadGateway)
+		http.Error(w, "Звук виртуального Mac не запустился. Убедитесь, что гостевая система разблокирована и Cage Guest Window может записывать экран и системный звук", http.StatusBadGateway)
 		return
 	}
 	s.streamAudio(w, r.WithContext(ctx), bufferedAudio{Reader: reader, Closer: pipe})

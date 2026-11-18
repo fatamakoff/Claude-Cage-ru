@@ -195,7 +195,7 @@ func (n *node) snapshot(ctx context.Context) (state, error) {
 		out.ProxyURL = n.proxyURL()
 	}
 	if err := n.writeSSHConfig(out.Peers); err != nil {
-		out.Health = append(out.Health, "SSH 自动配置未完成，私网仍可使用："+err.Error())
+		out.Health = append(out.Health, "Автонастройка SSH не завершена, частная сеть по-прежнему доступна: "+err.Error())
 	}
 	return out, nil
 }
@@ -301,14 +301,14 @@ func (n *node) run(ctx context.Context, r request) (state, error) {
 	case "add-key":
 		key, comment, options, rest, err := gossh.ParseAuthorizedKey([]byte(strings.TrimSpace(r.Key)))
 		if err != nil || len(options) != 0 || len(strings.TrimSpace(string(rest))) != 0 {
-			return state{}, errors.New("请粘贴一条有效的 SSH 公钥，不支持私钥或 authorized_keys 限制选项")
+			return state{}, errors.New("Вставьте действующий открытый ключ SSH; закрытые ключи и ограничивающие опции authorized_keys не поддерживаются")
 		}
 		canonical := strings.TrimSpace(string(gossh.MarshalAuthorizedKey(key)))
 		if comment != "" {
 			canonical += " " + strings.ReplaceAll(comment, "\n", "")
 		}
 		if len(n.config.Keys) >= 32 {
-			return state{}, errors.New("最多保存 32 条 SSH 公钥")
+			return state{}, errors.New("Можно сохранить не более 32 открытых ключей SSH")
 		}
 		for _, entry := range n.config.Keys {
 			existing, _, _, _, _ := gossh.ParseAuthorizedKey([]byte(entry))
@@ -326,7 +326,7 @@ func (n *node) run(ctx context.Context, r request) (state, error) {
 			return state{}, err
 		}
 	default:
-		return state{}, errors.New("Tailscale 操作无效")
+		return state{}, errors.New("Недопустимая операция Tailscale")
 	}
 	return n.snapshot(ctx)
 }
@@ -521,7 +521,7 @@ func main() {
 			os.Exit(2)
 		}
 		if err := dial(os.Args[2], os.Args[3]); err != nil {
-			fmt.Fprintln(os.Stderr, "Cage Tailscale 连接失败，请检查私网连接与目标 SSH 服务")
+			fmt.Fprintln(os.Stderr, "Не удалось подключиться к Cage через Tailscale. Проверьте подключение к частной сети и целевую службу SSH")
 			os.Exit(1)
 		}
 		return

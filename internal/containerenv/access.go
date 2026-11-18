@@ -30,7 +30,7 @@ func (r *Runtime) ensureSSHKey() ([]byte, error) {
 		}
 		key, err := ssh.ParsePrivateKey(data)
 		if err != nil {
-			return nil, errors.New("容器 SSH 密钥无效；未覆盖现有密钥")
+			return nil, errors.New("Недопустимый SSH-ключ контейнера; существующий ключ не перезаписан")
 		}
 		return ssh.MarshalAuthorizedKey(key.PublicKey()), nil
 	} else if !os.IsNotExist(err) {
@@ -70,7 +70,7 @@ func (r *Runtime) InstallAccess(ctx context.Context) error {
 		return err
 	}
 	if !inspection.State.Running {
-		return errors.New("请先启动容器")
+		return errors.New("Сначала запустите контейнер")
 	}
 	profile, err := guestprofile.Load(r.profile)
 	if err != nil {
@@ -99,7 +99,7 @@ sshd -t
 systemctl reload ssh
 `
 		if _, err = r.output(ctx, "exec", "--user", "0", inspection.State.ContainerID, "/bin/sh", "-c", script, "sh", profile.Username, profile.BrowserUsername, profile.WorkHomePath(), profile.BrowserHomePath()); err != nil {
-			return errors.New("无法初始化新容器账户；原容器文件已保留")
+			return errors.New("Не удалось инициализировать аккаунт нового контейнера; файлы исходного контейнера сохранены")
 		}
 	}
 	public, err := r.ensureSSHKey()
@@ -119,11 +119,11 @@ cat /etc/ssh/ssh_host_ed25519_key.pub
 	var output bytes.Buffer
 	command.Stdout = &limitedWriter{writer: &output, left: 4096}
 	if err := command.Run(); err != nil {
-		return errors.New("无法配置容器 SSH 访问")
+		return errors.New("Не удалось настроить SSH-доступ к контейнеру")
 	}
 	key, _, _, rest, err := ssh.ParseAuthorizedKey(output.Bytes())
 	if err != nil || len(bytes.TrimSpace(rest)) != 0 || key.Type() != ssh.KeyAlgoED25519 {
-		return errors.New("容器 SSH 主机密钥无效")
+		return errors.New("Недопустимый ключ хоста SSH контейнера")
 	}
 	line := "cage-container-" + r.identity + " " + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) + "\n"
 	path := filepath.Join(r.InstanceDir(), "known_hosts")
@@ -132,7 +132,7 @@ cat /etc/ssh/ssh_host_ed25519_key.pub
 			return err
 		}
 		if !bytes.Equal(old, []byte(line)) {
-			return errors.New("容器 SSH 主机密钥已变化；拒绝覆盖信任记录")
+			return errors.New("Ключ хоста SSH контейнера изменился; перезапись записи доверия отклонена")
 		}
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -143,14 +143,14 @@ cat /etc/ssh/ssh_host_ed25519_key.pub
 
 func sshConfigValue(value string) (string, error) {
 	if strings.ContainsAny(value, "\x00\r\n") {
-		return "", errors.New("SSH 配置路径无效")
+		return "", errors.New("Недопустимый путь конфигурации SSH")
 	}
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value) + `"`, nil
 }
 
 func (r *Runtime) writeSSHConfig(port int, user string) error {
 	if port < 1024 || port > 65535 {
-		return errors.New("容器 SSH 入口端口无效")
+		return errors.New("Недопустимый порт SSH-входа контейнера")
 	}
 	identity, err := sshConfigValue(filepath.Join(r.InstanceDir(), "id_ed25519"))
 	if err != nil {
@@ -180,7 +180,7 @@ func (r *Runtime) Stop(ctx context.Context) error {
 		return err
 	}
 	if !rootless {
-		return errors.New("拒绝操作非 rootless 容器引擎")
+		return errors.New("Операция с движком контейнеров без rootless отклонена")
 	}
 	container, err := r.inspectContainer(ctx)
 	if err != nil {
@@ -191,7 +191,7 @@ func (r *Runtime) Stop(ctx context.Context) error {
 	}
 	if client, err := cage.OpenGateClient(r.InstanceDir()); err == nil {
 		closeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		_, _ = client.Close(closeCtx, "容器正在停止")
+		_, _ = client.Close(closeCtx, "Контейнер останавливается")
 		cancel()
 	}
 	if container.State.Running {
@@ -205,7 +205,7 @@ func (r *Runtime) Stop(ctx context.Context) error {
 	defer cancel()
 	release, err := lockRuntime(cleanupCtx, filepath.Join(r.InstanceDir(), "network.lock"))
 	if err != nil {
-		return errors.New("容器已停止，网络服务仍在退出；原文件保留，请稍后重试")
+		return errors.New("Контейнер остановлен, но сетевой сервис ещё завершается; исходные файлы сохранены, повторите попытку позже")
 	}
 	defer release()
 	for _, name := range []string{"network.json", "cage-running.json"} {

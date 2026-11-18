@@ -18,19 +18,19 @@ func macOSFileFailure(reason string) error {
 	}
 	switch reason {
 	case "requires_gui_login":
-		return errors.New("请先登录并解锁虚拟 Mac 的普通账户")
+		return errors.New("Сначала войдите и разблокируйте обычный аккаунт виртуального Mac")
 	case "accessibility_permission":
-		return errors.New("请在虚拟 Mac 中允许 Cage Guest Window 使用辅助功能，再重新传递文件")
+		return errors.New("Разрешите Cage Guest Window использовать универсальный доступ в виртуальном Mac и передайте файлы заново")
 	case "window_changed", "file_dialog_changed", "gui_session_changed", "attachment_cancelled":
-		return errors.New("接收文件的 Claude 窗口已变化，请回到原窗口重新选择文件")
+		return errors.New("Окно Claude, принимающее файл, изменилось. Вернитесь в исходное окно и снова выберите файл")
 	case "file_dialog_navigation_failed", "file_dialog_still_open", "file_dialog_selection_mismatch":
-		return errors.New("客机文件选择框尚未接收文件，请检查该选择框后重试")
+		return errors.New("Диалог выбора файлов гостевой системы ещё не принял файл. Проверьте этот диалог и повторите")
 	case "attachment_incomplete":
-		return errors.New("附件尚未完整传入，请重新选择文件")
+		return errors.New("Вложения ещё не переданы полностью. Снова выберите файл")
 	case "attachment_limit":
-		return errors.New("一次最多传递 100 个附件，请分批选择文件")
+		return errors.New("За раз можно передать не более 100 вложений. Выбирайте файлы частями")
 	default:
-		return errors.New("虚拟 Mac 未能接收附件，请确认 Claude Desktop 已打开，且客机组件已更新")
+		return errors.New("Виртуальный Mac не принял вложения. Убедитесь, что Claude Desktop открыт, и обновите компоненты гостевой системы")
 	}
 }
 
@@ -48,7 +48,7 @@ func (s *Server) macOSDesktopFileCall(ctx context.Context, input macOSWindowRequ
 	}
 	var result map[string]any
 	if json.Unmarshal(data, &result) != nil {
-		return nil, errors.New("虚拟 Mac 附件响应无效")
+		return nil, errors.New("Недопустимый ответ вложений виртуального Mac")
 	}
 	if reason, _ := result["error"].(string); reason != "" {
 		return nil, macOSFileFailure(reason)
@@ -113,12 +113,12 @@ func (s *Server) macOSUploadDesktopAttachment(ctx context.Context, name, id stri
 	reader := bufio.NewScanner(output)
 	reader.Buffer(make([]byte, 4096), 65536)
 	if !reader.Scan() || json.Unmarshal(reader.Bytes(), &reply) != nil || len(reply.Paths) != 1 || !validMacOSClipboardAttachment(reply.Paths[0], name) {
-		return nil, errors.New("虚拟 Mac 附件没有完整保存，请重新传递")
+		return nil, errors.New("Вложения виртуального Mac сохранены не полностью. Передайте их заново")
 	}
 	err = cmd.Wait()
 	finished = true
 	if err != nil {
-		return nil, errors.New("虚拟 Mac 附件传递中断，请重新选择文件")
+		return nil, errors.New("Передача вложений в виртуальный Mac прервана. Снова выберите файл")
 	}
 	if _, err = s.macOSDesktopFileCall(ctx, macOSWindowRequest{Action: "files-add", ID: id, Files: reply.Paths}); err != nil {
 		// An upload may finish after its window or batch was canceled. Remove
@@ -137,7 +137,7 @@ func (s *Server) macOSUploadDesktopAttachment(ctx context.Context, name, id stri
 
 func (s *Server) macOSPasteDesktopImage(ctx context.Context, data []byte, window macOSWindowRequest) (map[string]any, error) {
 	if len(data) == 0 || len(data) > maxImageBytes {
-		return nil, errors.New("图片大小无效")
+		return nil, errors.New("Недопустимый размер изображения")
 	}
 	if window.Window == 0 || window.PID <= 0 {
 		return nil, macOSFileFailure("window_changed")
@@ -149,17 +149,17 @@ func (s *Server) macOSPasteDesktopImage(ctx context.Context, data []byte, window
 	var reply bytes.Buffer
 	cmd.Stdout = &boundedWindowsStatusWriter{buffer: &reply, remaining: 65536}
 	if cmd.Run() != nil {
-		return nil, errors.New("图片未能传入虚拟 Mac，请确认 Claude Desktop 已打开")
+		return nil, errors.New("Не удалось передать изображение в виртуальный Mac. Убедитесь, что Claude Desktop открыт")
 	}
 	var result map[string]any
 	if json.Unmarshal(reply.Bytes(), &result) != nil {
-		return nil, errors.New("虚拟 Mac 图片响应无效")
+		return nil, errors.New("Недопустимый ответ изображения виртуального Mac")
 	}
 	if reason, _ := result["error"].(string); reason != "" {
 		return nil, macOSFileFailure(reason)
 	}
 	if result["ok"] != true {
-		return nil, errors.New("虚拟 Mac 未确认图片粘贴")
+		return nil, errors.New("Виртуальный Mac не подтвердил вставку изображения")
 	}
 	return result, nil
 }

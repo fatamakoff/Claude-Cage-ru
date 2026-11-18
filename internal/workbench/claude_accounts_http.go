@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var errClaudeAccessLost = errors.New("Cage 已锁定，请先解锁")
+var errClaudeAccessLost = errors.New("Cage заблокирован. Сначала разблокируйте")
 
 type claudeAccountInput struct {
 	Action       string            `json:"action"`
@@ -75,20 +75,20 @@ func (s *Server) mutateClaudeAccounts(w http.ResponseWriter, r *http.Request) {
 		err = loadErr
 		if err == nil && input.Action == "scheduling" {
 			if input.Scheduling == nil || !input.Scheduling.valid() {
-				err = errors.New("请选择有效的调度模式和切换授权")
+				err = errors.New("Выберите допустимый режим планирования и разрешение на переключение")
 			} else {
 				list.Scheduling = *input.Scheduling
 			}
 			if err == nil && input.Order != nil {
 				if len(input.Order) != len(list.Accounts) {
-					err = errors.New("账号列表已变化，请刷新后排序")
+					err = errors.New("Список аккаунтов изменился. Обновите и повторите сортировку")
 				} else {
 					ordered := make([]claudeAccount, 0, len(input.Order))
 					seen := map[string]bool{}
 					for _, id := range input.Order {
 						a := list.find(id)
 						if a == nil || seen[id] {
-							err = errors.New("账号顺序无效")
+							err = errors.New("Неверный порядок аккаунтов")
 							break
 						}
 						seen[id] = true
@@ -107,7 +107,7 @@ func (s *Server) mutateClaudeAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 		m.mu.Unlock()
 	default:
-		err = errors.New("未知 Claude 账号操作")
+		err = errors.New("Неизвестная операция с аккаунтом Claude")
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
@@ -120,10 +120,10 @@ func (s *Server) mutateClaudeAccounts(w http.ResponseWriter, r *http.Request) {
 // remove a draft between selecting the login profile and publishing its PTY.
 func (s *Server) cancelClaudeDraft(id string) (claudeAccountList, error) {
 	if !validClaudeID(id) {
-		return claudeAccountList{}, errors.New("未找到待撤销的账号")
+		return claudeAccountList{}, errors.New("Не найден аккаунт для отмены")
 	}
 	if !s.op.TryLock() {
-		return claudeAccountList{}, errors.New("环境正在处理其他操作，请稍后重试")
+		return claudeAccountList{}, errors.New("Среда занята другой операцией. Повторите позже")
 	}
 	defer s.op.Unlock()
 	m := &s.claudeAccounts
@@ -138,14 +138,14 @@ func (s *Server) cancelClaudeDraft(id string) (claudeAccountList, error) {
 		return list, nil
 	}
 	if a.Email != "" {
-		return list, errors.New("已绑定的账号可以暂停参与分配，不能撤销添加")
+		return list, errors.New("Привязанный аккаунт можно исключить из распределения, но нельзя отменить добавление")
 	}
 	if m.refreshing[id] != nil {
-		return list, errors.New("账号状态检查尚未结束，请稍后重试")
+		return list, errors.New("Проверка состояния аккаунта ещё не завершена. Повторите позже")
 	}
 	for _, session := range s.terminals.snapshot() {
 		if session["claude_account_id"] == id && session["closed"] == false {
-			return list, errors.New("请先结束该账号的登录或工作终端，再撤销添加")
+			return list, errors.New("Сначала завершите терминал входа или работы этого аккаунта, затем отмените добавление")
 		}
 	}
 	list.Accounts = slices.DeleteFunc(list.Accounts, func(a claudeAccount) bool { return a.ID == id })
@@ -303,7 +303,7 @@ func (s *Server) refreshClaude(ctx context.Context, id string, finished bool) er
 		}
 	}
 	if err == nil && list.find(id) == nil && (id == "" || list.PendingLogin != id) {
-		err = errors.New("未找到 Claude 账号")
+		err = errors.New("Аккаунт Claude не найден")
 	}
 	if err != nil {
 		m.mu.Unlock()
@@ -338,7 +338,7 @@ func (s *Server) runClaudeRefresh(parent context.Context, id, guestID string, ca
 		return
 	}
 	if probeErr != nil {
-		err = errors.New("无法读取账号状态，请确认环境已启动并检查 Claude Code")
+		err = errors.New("Не удалось прочитать состояние аккаунта. Убедитесь, что среда запущена, и проверьте Claude Code")
 		return
 	}
 	m.mu.Lock()
@@ -348,7 +348,7 @@ func (s *Server) runClaudeRefresh(parent context.Context, id, guestID string, ca
 		return
 	}
 	if ctx.Err() != nil {
-		err = errors.New("账号状态检查已取消")
+		err = errors.New("Проверка состояния аккаунта отменена")
 		return
 	}
 	list, err := s.loadClaudeAccounts()
@@ -362,7 +362,7 @@ func (s *Server) runClaudeRefresh(parent context.Context, id, guestID string, ca
 						// sessions use this independently authenticated directory.
 						existing.Source, existing.ProfileID = "managed", id
 						err = list.observe(existing.ID, reading, time.Now())
-						notice = "已为已有账号绑定独立登录，保留原备注和参与设置"
+						notice = "К существующему аккаунту привязан отдельный вход; примечание и настройки участия сохранены"
 					} else {
 						// Rebinding ProfileID would strand conversations pinned to
 						// the old directory. Recover its missing login in the guest.
@@ -372,24 +372,24 @@ func (s *Server) runClaudeRefresh(parent context.Context, id, guestID string, ca
 							return
 						}
 						if ctx.Err() != nil {
-							err = errors.New("账号状态检查已取消")
+							err = errors.New("Проверка состояния аккаунта отменена")
 							return
 						}
 						if recoveryErr == nil && recovered.subject() == reading.subject() {
 							err = list.observe(existing.ID, recovered, time.Now())
-							notice = "已恢复已有账号的登录，保留原目录、会话和参与设置"
+							notice = "Вход существующего аккаунта восстановлен; каталог, сессии и настройки участия сохранены"
 						} else {
-							notice = "此身份已在账号列表中，本次登录未更新原账号。请先等待该账号的手机任务结束，并关闭仍使用它的终端，再从原账号卡片重新登录。"
+							notice = "Эта учётная запись уже есть в списке аккаунтов; текущий вход не обновил исходный аккаунт. Дождитесь завершения мобильных задач этого аккаунта, закройте терминалы, которые его используют, и войдите заново с карточки исходного аккаунта."
 						}
 					}
 				} else {
 					list.Accounts = append(list.Accounts, claudeAccount{ID: id, Source: "managed", Label: reading.email(), Enabled: true})
 					err = list.observe(id, reading, time.Now())
-					notice = "已将登录成功的 Claude 账号加入自动分配"
+					notice = "Аккаунт Claude успешно добавлен в автоматическое распределение"
 				}
 				list.PendingLogin = ""
 			case finished:
-				notice = "本次登录未完成，没有添加账号"
+				notice = "Вход не завершён, аккаунт не добавлен"
 				// A new attempt may already be entering this guest profile.
 				// Keep its ID unless terminal admission is certainly idle.
 				if s.op.TryLock() {
@@ -419,21 +419,21 @@ func (s *Server) recoverClaudeLogin(ctx context.Context, accountID, target, sour
 	}
 	defer s.op.Unlock()
 	if s.mobileCLI.activeAccounts()[accountID] > 0 {
-		return claudeGuestSnapshot{}, errors.New("请先结束该账号正在执行的移动 CLI 轮次，再重新登录")
+		return claudeGuestSnapshot{}, errors.New("Сначала завершите текущий мобильный раунд CLI этого аккаунта, затем войдите заново")
 	}
 	if login, err := s.terminals.existingClaudeLogin(accountID, true); err != nil {
 		return claudeGuestSnapshot{}, err
 	} else if login != nil {
-		return claudeGuestSnapshot{}, errors.New("请先完成原账号的登录")
+		return claudeGuestSnapshot{}, errors.New("Сначала завершите вход в исходный аккаунт")
 	}
 	if recover := s.claudeAccounts.recoverLogin; recover != nil {
 		return recover(ctx, target, source, subject)
 	}
 	if s.windowsGuest != nil {
-		return claudeGuestSnapshot{}, errors.New("请从原账号入口重新登录")
+		return claudeGuestSnapshot{}, errors.New("Войдите заново через карточку исходного аккаунта")
 	}
 	if !validClaudeID(target) || !validClaudeID(source) || len(subject) != 64 || strings.Trim(subject, "0123456789abcdef") != "" {
-		return claudeGuestSnapshot{}, errors.New("Claude 登录恢复参数无效")
+		return claudeGuestSnapshot{}, errors.New("Неверные параметры восстановления входа Claude")
 	}
 	return s.readClaudeGuestReport(ctx, target, "exec /usr/local/bin/cage-claude-account recover-login "+target+" "+source+" "+subject)
 }

@@ -41,7 +41,7 @@ func findAudioModel(id string) (AudioModel, bool) {
 func chooseAudio(o *Options) error {
 	models := AudioModels()
 	if len(models) == 0 {
-		return errors.New("音频型号库不可用")
+		return errors.New("Библиотека моделей аудио недоступна")
 	}
 	index, err := choose(len(models))
 	if err != nil {
@@ -52,7 +52,7 @@ func chooseAudio(o *Options) error {
 		var ok bool
 		model, ok = findAudioModel(o.AudioModel)
 		if !ok {
-			return errors.New("音频型号不存在")
+			return errors.New("Модель аудио не существует")
 		}
 	}
 	auto := o.AudioName == "" && o.AudioDescription == ""

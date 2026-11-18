@@ -58,7 +58,7 @@ export const RemoteView = forwardRef(function RemoteView(
     paste: () => input.current?.readAndPaste(),
     pasteText: (text) => input.current?.paste(text),
     transfer: () =>
-      onFallback(input.current?.text() || "", "可在此使用本机复制、粘贴。"),
+      onFallback(input.current?.text() || "", "Здесь можно использовать локальное копирование и вставку."),
   }));
   useEffect(() => {
     if (!screenVisible) return;
@@ -164,7 +164,7 @@ export const RemoteView = forwardRef(function RemoteView(
             copyText: !desktop
               ? (_sendCopy, valid, { id, context, key }) => {
                 if (current.current.systemClipboard !== false) return undefined;
-                if (!valid()) throw new Error("复制位置已切换，请重新复制");
+                if (!valid()) throw new Error("Место копирования изменилось. Скопируйте снова");
                 return api("/browser/" + (key === "x" ? "cut" : "copy"), { id, context });
               }
               : undefined,
@@ -174,7 +174,7 @@ export const RemoteView = forwardRef(function RemoteView(
               catch {
                 if (valid()) {
                   input.current?.cancelCopy();
-                  current.current.onStatus("复制按钮同步暂未就绪，可使用复制快捷键或文本传递");
+                  current.current.onStatus("Синхронизация кнопки копирования не готова — используйте сочетание клавиш или передачу текста");
                 }
                 // A metadata failure must not cancel the user's queued click.
               }
@@ -185,7 +185,7 @@ export const RemoteView = forwardRef(function RemoteView(
               const valid = () => !disposed && current.current.visible && current.current.tabId === id;
               return client.cagePasteContent(content,
                 (payload) => {
-                  if (!valid()) throw new Error("输入目标已切换，请重新粘贴图片");
+                  if (!valid()) throw new Error("Цель ввода изменилась. Вставьте изображение снова");
                   return payload.files || payload.fileSelection
                     ? sendFiles(payload, desktop ? "desktop" : "browser", id, { valid })
                     : sendImage(payload, desktop ? "desktop" : "browser", id, { prepared });
@@ -197,28 +197,28 @@ export const RemoteView = forwardRef(function RemoteView(
                 return client.cageRunInput(async () => {
                   const valid = () => !disposed && current.current.visible;
                   const state = await api("/input", { target: "desktop", id: "desktop", mode: "status" });
-                  if (!state.available || !valid()) throw new Error("输入位置已失去焦点，请重新点击输入框");
+                  if (!state.available || !valid()) throw new Error("Поле ввода потеряло фокус. Щёлкните по нему снова");
                   const session = crypto.randomUUID().replaceAll("-", "");
                   const begun = await api("/input", { target: "desktop", id: "desktop", mode: "begin", context: state.context, session, sequence: 0 });
-                  if (!begun.available || !valid()) throw new Error("输入位置已失去焦点，请重新点击输入框");
+                  if (!begun.available || !valid()) throw new Error("Поле ввода потеряло фокус. Щёлкните по нему снова");
                   const result = await api("/input", { target: "desktop", id: "desktop", mode: "commit", session, sequence: 1, text });
-                  if (!result.available) throw new Error("文字输入未完成，请重新点击输入框");
+                  if (!result.available) throw new Error("Ввод текста не завершён. Щёлкните по полю ввода снова");
                 });
               }
               const id = current.current.tabId;
               return client.cageRunInput(() => {
                 if (disposed || !current.current.visible || current.current.tabId !== id)
-                  throw new Error("输入位置已切换，请重新输入");
+                  throw new Error("Место ввода изменилось. Введите заново");
                 return api("/browser/insert-text", { id, text });
               });
             },
             insertComposition: (id, value) => client.cageRunInput(async () => {
               if (value.mode !== "cancel" && (disposed || !current.current.visible ||
                   (desktop ? "desktop" : current.current.tabId) !== id))
-                throw new Error("输入位置已切换，请重新输入");
+                throw new Error("Место ввода изменилось. Введите заново");
               const result = await api("/input", { target: desktop ? "desktop" : "browser", id, ...value });
               if (value.mode !== "cancel" && !result.available)
-                throw new Error("输入位置已失去焦点，请重新输入");
+                throw new Error("Поле ввода потеряло фокус. Введите заново");
               return result;
             }),
             tabId: () => desktop ? "desktop" : current.current.tabId,
@@ -278,23 +278,23 @@ export const RemoteView = forwardRef(function RemoteView(
       <div className="remote-canvas" ref={box} />
       {sizeError && connection === "connected" && (
         <div className="remote-size-warning connection-banner" role="alert">
-          画面尺寸未能同步，显示比例可能不准确。
-          <button onClick={() => displayResize.current?.retry()}>重试调整</button>
+          Размер экрана не синхронизирован, масштаб может быть неточным.
+          <button onClick={() => displayResize.current?.retry()}>Повторить</button>
         </div>
       )}
       {connection !== "connected" && (
         <div className="view-overlay">
           <RefreshCw className={connection === "connecting" ? "spin" : ""} />
           <h3>
-            {connection === "connecting" ? "正在连接画面" : "画面连接已断开"}
+            {connection === "connecting" ? "Подключение экрана" : "Соединение экрана прервано"}
           </h3>
-          <p>后台任务不会因画面断开而自动结束。</p>
+          <p>Фоновые задачи не завершаются автоматически при разрыве экрана.</p>
           {connection === "disconnected" && (
             <button
               className="primary"
               onClick={() => setAttempt((v) => v + 1)}
             >
-              重新连接画面
+              Переподключить экран
             </button>
           )}
         </div>
@@ -337,7 +337,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       linkHandler: { activate(event, uri) {
         if (isClaudeLoginLink(uri)) return void activateLogin(event, uri);
         // Keep xterm's user confirmation for other explicit HTTP(S) links.
-        if (window.confirm(`打开此终端链接？\n${uri}`)) window.open(uri, "_blank", "noopener,noreferrer");
+        if (window.confirm(`Открыть эту ссылку терминала?\n${uri}`)) window.open(uri, "_blank", "noopener,noreferrer");
       } },
       fontFamily: theme.fonts.code || systemCodeFont,
       fontSize: appearance.codeFontSize,
@@ -410,8 +410,8 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (text === undefined) return true;
       try {
         await writeClipboard(text);
-        if (!disposed) onStatus("已复制终端选中文本");
-      } catch { if (!disposed) onStatus("无法写入本机剪贴板"); }
+        if (!disposed) onStatus("Выделенный текст терминала скопирован");
+      } catch { if (!disposed) onStatus("Не удалось записать в локальный буфер обмена"); }
       return true;
     });
     ws.onmessage = (event) => {
@@ -433,7 +433,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     };
     ws.onclose = () => { setConnected(false); reveal(); };
     const send = (data) => {
-      if (disposed || ws.readyState !== WebSocket.OPEN) throw new Error("终端已断开，请重新连接后重试");
+      if (disposed || ws.readyState !== WebSocket.OPEN) throw new Error("Терминал отключён. Переподключитесь и повторите");
       ws.send(JSON.stringify({ type: "input", data }));
     };
     terminal.onData((data) => {
@@ -443,11 +443,11 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     const receive = (content) => {
       // Attach rejection immediately, even while another image is in flight.
       const ready = Promise.resolve(content).then(value => ({ value }), error => ({ error }));
-      onStatus("正在传递剪贴板内容…");
+      onStatus("Передача содержимого буфера обмена…");
       void enqueue(async () => {
         const { value, error } = await ready;
         if (error) throw error;
-        if (disposed || !visibleRef.current || !focusedRef.current || ws.readyState !== WebSocket.OPEN) throw new Error("终端已切换或断开，请重新粘贴");
+        if (disposed || !visibleRef.current || !focusedRef.current || ws.readyState !== WebSocket.OPEN) throw new Error("Терминал переключён или отключён. Вставьте снова");
         let text = value.text || "";
         if (value.files || value.fileSelection) {
           const result = await sendFiles(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws.readyState === WebSocket.OPEN });
@@ -457,11 +457,11 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           const result = await sendImage(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws.readyState === WebSocket.OPEN });
           text = shellFilePaths([result.path]);
         }
-        if (disposed || !visibleRef.current || !focusedRef.current) throw new Error("终端已切换，请回到原终端重新粘贴");
+        if (disposed || !visibleRef.current || !focusedRef.current) throw new Error("Терминал переключён. Вернитесь в исходный терминал и вставьте снова");
         // Honor xterm's bracketed-paste mode without enqueuing behind this job.
         emittingPaste = true;
         try { terminal.paste(text); } finally { emittingPaste = false; }
-        onStatus(value.png || value.files || value.fileSelection ? "附件已保存到 Cage，路径已插入终端" : "已粘贴");
+        onStatus(value.png || value.files || value.fileSelection ? "Вложения сохранены в Cage, путь вставлен в терминал" : "Вставлено");
       }).catch((error) => { if (!disposed) onStatus(error.message); });
     };
     const host = box.current;
@@ -494,13 +494,13 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         if (terminal.modes.mouseTrackingMode !== "none")
           void enqueue(() => send("\x1b[99;6u")).catch(() => {});
         onStatus(terminal.modes.mouseTrackingMode === "none"
-          ? "请先拖选要复制的终端文字"
-          : `当前程序接管了鼠标。请按住 ${isMac ? "Option" : "Shift"} 拖选文字，再复制。`);
+          ? "Сначала выделите текст терминала для копирования"
+          : `Текущая программа перехватила мышь. Удерживая ${isMac ? "Option" : "Shift"}, выделите текст и скопируйте.`);
         return;
       }
       void writeClipboard(text)
-        .then(() => onStatus("已复制终端选中文本"))
-        .catch(() => onStatus("无法写入本机剪贴板"));
+        .then(() => onStatus("Выделенный текст терминала скопирован"))
+        .catch(() => onStatus("Не удалось записать в локальный буфер обмена"));
     };
     const onCopy = (event) => {
       if (!visibleRef.current || !focusedRef.current) return;
@@ -622,19 +622,19 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       <div className={`terminal-host ${preparing ? "terminal-preparing" : ""}`} ref={box} aria-hidden={preparing || undefined} />
       {preparing && (
         <div className="terminal-startup" role="status">
-          <span>正在准备 Claude 会话…</span>
-          <button onClick={() => revealStartup.current?.()}>显示启动过程</button>
+          <span>Подготовка сессии Claude…</span>
+          <button onClick={() => revealStartup.current?.()}>Показать процесс запуска</button>
         </div>
       )}
       {!connected && (
         <div className="terminal-note">
           {session.closed
-            ? "终端会话已结束。可点击项目右侧的终端图标新建终端。"
-            : "正在连接终端…"}
+            ? "Сессия терминала завершена. Чтобы создать новый терминал, нажмите значок терминала справа от проекта."
+            : "Подключение терминала…"}
           {!session.closed && (
             <button onClick={() => setAttempt((v) => v + 1)}>
               <RefreshCw size={13} />
-              重新连接
+              Переподключить
             </button>
           )}
         </div>

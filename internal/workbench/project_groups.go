@@ -136,7 +136,7 @@ func (s *Server) projectConnectionError(w http.ResponseWriter, err error, folder
 				jsonReply(w, map[string]string{"workspace": folder, "approval": grant})
 				return
 			}
-			err = &projectShareError{Recovery: "project-approval", Message: "未能显示项目授权窗口，请重试"}
+			err = &projectShareError{Recovery: "project-approval", Message: "Не удалось показать окно авторизации проекта. Повторите"}
 		}
 	}
 	var failure *projectShareError
@@ -153,11 +153,11 @@ func (s *Server) saveProject(w http.ResponseWriter, r *http.Request) {
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" || utf8.RuneCountInString(input.Name) > 100 || strings.ContainsAny(input.Name, "\x00\r\n") || len(input.Folders) == 0 || len(input.Folders) > 32 {
-		http.Error(w, "请填写项目名称，并添加 1–32 个文件夹", http.StatusBadRequest)
+		http.Error(w, "Укажите название проекта и добавьте от 1 до 32 папок", http.StatusBadRequest)
 		return
 	}
 	if !s.op.TryLock() {
-		http.Error(w, "另一个操作仍在进行，请稍候", http.StatusConflict)
+		http.Error(w, "Другая операция ещё выполняется. Подождите", http.StatusConflict)
 		return
 	}
 	defer s.op.Unlock()
@@ -165,7 +165,7 @@ func (s *Server) saveProject(w http.ResponseWriter, r *http.Request) {
 	ready, closing := s.ready, s.closing
 	s.mu.Unlock()
 	if closing || !ready || s.busy() {
-		http.Error(w, "环境尚未就绪或正在处理其他操作，请稍后重试", http.StatusConflict)
+		http.Error(w, "Среда ещё не готова или выполняет другую операцию. Повторите позже", http.StatusConflict)
 		return
 	}
 	saved, err := s.readSharedProjects()
@@ -182,7 +182,7 @@ func (s *Server) saveProject(w http.ResponseWriter, r *http.Request) {
 	folders := []string{}
 	for _, folder := range input.Folders {
 		if isClientMountPath(folder) {
-			http.Error(w, "临时客户端共享请单独管理", http.StatusBadRequest)
+			http.Error(w, "Временными общими ресурсами клиента нужно управлять отдельно", http.StatusBadRequest)
 			return
 		}
 		path, err := validateWorkspace(folder, s.profile)
@@ -204,13 +204,13 @@ func (s *Server) saveProject(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if previous == nil || !slices.Contains(folders, input.Workspace) {
-			http.Error(w, "请保留项目的默认文件夹，以继续使用已有会话历史", http.StatusBadRequest)
+			http.Error(w, "Сохраните папку проекта по умолчанию, чтобы продолжить работу с историей сессий", http.StatusBadRequest)
 			return
 		}
 	} else {
 		input.Workspace = folders[0]
 		if slices.ContainsFunc(saved.Groups, func(g projectGroup) bool { return g.Workspace == input.Workspace }) {
-			http.Error(w, "默认文件夹已属于现有项目，请选择编辑该项目", http.StatusBadRequest)
+			http.Error(w, "Папка по умолчанию уже принадлежит существующему проекту. Выберите редактирование этого проекта", http.StatusBadRequest)
 			return
 		}
 	}
@@ -222,7 +222,7 @@ func (s *Server) saveProject(w http.ResponseWriter, r *http.Request) {
 			// An existing single-folder project can join this group. Named or
 			// multi-folder groups must be edited explicitly to avoid stealing them.
 			if slices.Contains(group.Folders, folder) && slices.ContainsFunc(saved.Groups, func(g projectGroup) bool { return g.Workspace == group.Workspace }) {
-				http.Error(w, "文件夹已绑定到项目“"+group.Name+"”，请先从该项目解绑", http.StatusBadRequest)
+				http.Error(w, "Папка уже привязана к проекту «"+group.Name+"». Сначала отвяжите её от этого проекта", http.StatusBadRequest)
 				return
 			}
 		}

@@ -105,7 +105,7 @@ function ColorField({ label, value, onChange, onReset }) {
       <div className="theme-color-value">
         <input
           type="color"
-          aria-label={label + "取色"}
+          aria-label={label + "Выбор цвета"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -132,8 +132,8 @@ function ColorField({ label, value, onChange, onReset }) {
         {onReset && (
           <button
             className="icon-button"
-            aria-label={label + "恢复自动"}
-            title="恢复自动颜色"
+            aria-label={label + "Вернуть автоцвет"}
+            title="Вернуть автоматический цвет"
             onClick={onReset}
           >
             <RotateCcw size={13} />
@@ -141,14 +141,14 @@ function ColorField({ label, value, onChange, onReset }) {
         )}
       </div>
       {invalid && (
-        <small className="theme-color-error">请输入 # 加六位十六进制颜色</small>
+        <small className="theme-color-error">Введите # и шесть шестнадцатеричных цифр</small>
       )}
     </div>
   );
 }
 function ThemeCard({ variant, value, active, onChange, codeFonts }) {
   const [advanced, setAdvanced] = useState(false);
-  const label = variant === "light" ? "浅色主题" : "深色主题";
+  const label = variant === "light" ? "Светлая тема " : "Тёмная тема ";
   const options = presets[variant];
   const patch = (delta) => onChange({ ...value, preset: "custom", ...delta });
   const vars = themeVariables(value, variant);
@@ -166,9 +166,9 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
     >
       <div className="theme-card-heading">
         <strong>{label}</strong>
-        {active && <small>当前使用</small>}
+        {active && <small>Активна</small>}
         <InlineSelect
-          aria-label={label + "预设"}
+          aria-label={label + "Предустановка"}
           value={value.preset}
           onValueChange={(next) =>
             onChange(applyThemePreset(value, variant, next))
@@ -187,7 +187,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
           ))}
           {!options[value.preset] && (
             <option value={value.preset} disabled>
-              {presetNames[value.preset] || "自定义"}
+              {presetNames[value.preset] || "Своя"}
             </option>
           )}
         </InlineSelect>
@@ -216,32 +216,32 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
       <div className="theme-preset-summary">
         <p>
           {presetInfo[value.preset]?.description ||
-            "自定义配色，可另存为主题以便下次使用。"}
+            "Своя палитра; её можно сохранить как тему для следующего раза."}
         </p>
         <div
           className="theme-status-preview"
-          aria-label={label + "状态配色预览"}
+          aria-label={label + "Предпросмотр статусных цветов"}
           style={{ background: value.surface }}
         >
           <span style={{ color: vars["--success"] }}>
             <CircleCheck size={13} />
-            成功
+            Успех
           </span>
           <span style={{ color: vars["--warning"] }}>
             <TriangleAlert size={13} />
-            警告
+            Предупреждение
           </span>
           <span style={{ color: vars["--danger"] }}>
             <CircleX size={13} />
-            错误
+            Ошибка
           </span>
         </div>
       </div>
       <div className="theme-base-colors">
         {[
-          ["accent", "强调色"],
-          ["surface", "背景"],
-          ["ink", "文字"],
+          ["accent", "Акцент"],
+          ["surface", "Фон"],
+          ["ink", "Текст"],
         ].map(([key, name]) => (
           <ColorField
             key={key}
@@ -256,13 +256,13 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
         onClick={() => setAdvanced(!advanced)}
         aria-expanded={advanced}
       >
-        自定义
+        Настроить
         <ChevronDown size={14} className={advanced ? "rotated" : ""} />
       </button>
       {advanced && (
         <div className="theme-options">
           <p className="theme-options-hint">
-            未单独设置的颜色随基础配色自动调整。
+            Цвета, не заданные отдельно, подстраиваются под базовую палитру.
           </p>
           {colorGroups.map((group) => (
             <details className="theme-color-group" key={group.label}>
@@ -288,7 +288,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
               {group.entries.map(([key, name]) => (
                 <ColorField
                   key={key}
-                  label={label + "终端" + name}
+                  label={label + "Терминал " + name}
                   value={terminal[key]}
                   onChange={(color) => setColor("terminal", key, color)}
                   onReset={
@@ -306,7 +306,7 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
               background: terminal.background,
               color: terminal.foreground,
             }}
-            aria-label={label + "终端预览"}
+            aria-label={label + "Предпросмотр терминала"}
           >
             <span style={{ color: terminal.green }}>~/cage</span> ${" "}
             <span style={{ color: terminal.blue }}>echo</span> hello
@@ -321,12 +321,12 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
             onClick={() => patch({ colors: {}, terminal: {} })}
           >
             <RotateCcw size={13} />
-            恢复全部自动颜色
+            Вернуть все автоцвета
           </button>
           <label>
-            对比度 <output>{value.contrast}</output>
+            Контраст <output>{value.contrast}</output>
             <input
-              aria-label={label + "对比度"}
+              aria-label={label + "Контраст"}
               type="range"
               min="0"
               max="100"
@@ -335,11 +335,11 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
             />
           </label>
           <label>
-            界面字体
+            Шрифт интерфейса
             <InlineSelect editable
-              aria-label={label + "界面字体"}
+              aria-label={label + "Шрифт интерфейса"}
               value={value.fonts.ui}
-              placeholder="系统默认"
+              placeholder="Системный по умолчанию"
               onValueChange={(next) =>
                 patch({ fonts: { ...value.fonts, ui: next } })
               }
@@ -351,11 +351,11 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
             </InlineSelect>
           </label>
           <label>
-            代码字体
+            Шрифт кода
             <InlineSelect editable
-              aria-label={label + "代码字体"}
+              aria-label={label + "Шрифт кода"}
               value={value.fonts.code}
-              placeholder="系统等宽字体"
+              placeholder="Системный моноширинный"
               onValueChange={(next) =>
                 patch({ fonts: { ...value.fonts, code: next } })
               }
@@ -364,11 +364,11 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
             </InlineSelect>
           </label>
           <label className="appearance-switch">
-            <span>半透明侧栏</span>
+            <span>Полупрозрачная боковая панель</span>
             <input
               type="checkbox"
               role="switch"
-              aria-label={label + "半透明侧栏"}
+              aria-label={label + "Полупрозрачная боковая панель"}
               checked={!value.opaqueWindows}
               onChange={(e) => patch({ opaqueWindows: !e.target.checked })}
             />
@@ -416,7 +416,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
     run(async () => {
       const title = validateThemeName(name);
       if (!replace && themes.length >= customThemeLimit)
-        throw new Error("最多保存 50 个自定义主题，请先删除不需要的主题");
+        throw new Error("Можно сохранить не более 50 своих тем — сначала удалите ненужные");
       const document = themeDocument(title, appearance);
       const item = {
         id: replace ? current.id : crypto.randomUUID(),
@@ -436,13 +436,13 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
       ) {
         setSelectedId(item.id);
         setName(title);
-        setNotice("主题已保存");
+        setNotice("Тема сохранена");
       }
     });
   const importText = async (text) => {
     const document = parseThemeDocument(text);
     if (themes.length >= customThemeLimit)
-      throw new Error("最多保存 50 个自定义主题，请先删除不需要的主题");
+      throw new Error("Можно сохранить не более 50 своих тем — сначала удалите ненужные");
     const item = {
       id: crypto.randomUUID(),
       name: document.name,
@@ -459,7 +459,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
     ) {
       setSelectedId(item.id);
       setName(item.name);
-      setNotice("主题已导入并应用");
+      setNotice("Тема импортирована и применена");
     }
   };
   const importFile = () => {
@@ -474,7 +474,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
   };
   const exportFile = () =>
     run(async () => {
-      const title = name.trim() || matching?.name || "我的主题";
+      const title = name.trim() || matching?.name || "Моя тема";
       const text =
         JSON.stringify(themeDocument(title, appearance), null, 2) + "\n";
       const filename =
@@ -484,7 +484,7 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
           .slice(0, 80) + ".cage-theme.json";
       if (nativeAvailable()) {
         if (await native("exportTheme", { text, filename }))
-          setNotice("主题已导出");
+          setNotice("Тема экспортирована");
       } else {
         const url = URL.createObjectURL(
           new Blob([text], { type: "application/json" }),
@@ -496,24 +496,24 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setNotice("已开始下载主题文件");
+        setNotice("Загрузка файла темы началась");
       }
     });
   return (
-    <section className="theme-library" aria-label="我的主题">
+    <section className="theme-library" aria-label="Мои темы">
       <div className="theme-library-heading">
         <div>
-          <h4>我的主题</h4>
-          <p>保存浅色、深色两套配色与字体，随时切换或分享。</p>
+          <h4>Мои темы</h4>
+          <p>Сохраните светлую и тёмную палитры со шрифтами — переключайтесь и делитесь в любой момент.</p>
         </div>
         <div className="theme-file-actions">
           <button disabled={busy || saving} onClick={importFile}>
             <Upload size={14} />
-            导入主题
+            Импорт темы
           </button>
           <button disabled={busy} onClick={exportFile}>
             <Download size={14} />
-            导出主题
+            Экспорт темы
           </button>
         </div>
       </div>
@@ -522,21 +522,21 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
         type="file"
         accept=".json,application/json"
         hidden
-        aria-label="选择主题文件"
+        aria-label="Выберите файл темы"
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
           if (file)
             void run(async () => {
               if (file.size > themeFileLimit)
-                throw new Error("主题文件不能超过 256 KB");
+                throw new Error("Файл темы не должен превышать 256 KB");
               await importText(await file.text());
             });
         }}
       />
       <div className="theme-library-fields">
         <InlineSelect
-          aria-label="已保存的主题"
+          aria-label="Сохранённые темы"
           value={current?.id || ""}
           disabled={busy || saving}
           onValueChange={(next) => {
@@ -545,18 +545,18 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
           }}
         >
           <option value="" disabled>
-            {themes.length ? "选择已保存的主题" : "尚无自定义主题"}
+            {themes.length ? "Выберите сохранённую тему" : "Своих тем пока нет"}
           </option>
           {themes.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
-              {item.id === current?.id && dirty ? " · 已修改" : ""}
+              {item.id === current?.id && dirty ? " · изменена" : ""}
             </option>
           ))}
         </InlineSelect>
         <input
-          aria-label="主题名称"
-          placeholder="为当前配色命名"
+          aria-label="Название темы"
+          placeholder="Назовите текущую палитру"
           value={name}
           maxLength={80}
           onChange={(e) => setName(e.target.value)}
@@ -565,30 +565,30 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
           disabled={busy || saving || !name.trim()}
           onClick={() => save(false)}
         >
-          另存为主题
+          Сохранить как тему
         </button>
       </div>
       {current && (
         <div className="theme-library-manage">
           <span>
-            {dirty ? "当前配色有未存入主题的修改" : "当前配色与已保存主题一致"}
+            {dirty ? "В палитре есть изменения, не сохранённые в тему" : "Палитра совпадает с сохранённой темой"}
           </span>
           {dirty && (
             <button disabled={busy || saving} onClick={() => apply(current)}>
-              恢复已保存配色
+              Вернуть сохранённую палитру
             </button>
           )}
           <button
             disabled={busy || saving || !name.trim()}
             onClick={() => save(true)}
           >
-            更新此主题
+            Обновить тему
           </button>
           <button
             disabled={busy || saving}
             onClick={() =>
               run(async () => {
-                if (!confirm(`删除主题“${current.name}”？当前配色会保留。`))
+                if (!confirm(`Удалить тему «${current.name}»? Текущая палитра сохранится.`))
                   return;
                 if (
                   await update((previous) => ({
@@ -600,12 +600,12 @@ function ThemeLibrary({ appearance, update, saving, onError }) {
                 ) {
                   setSelectedId("");
                   setName("");
-                  setNotice("主题已删除，当前配色已保留");
+                  setNotice("Тема удалена, текущая палитра сохранена");
                 }
               })
             }
           >
-            删除
+            Удалить
           </button>
         </div>
       )}
@@ -651,19 +651,19 @@ export function AppearanceSettings() {
   return (
     <div className="appearance-settings">
       <div className="section-title">
-        <h3>外观</h3>
-        <p>更改自动保存并即时生效，无需重启项目。</p>
+        <h3>Внешний вид</h3>
+        <p>Изменения сохраняются автоматически и применяются сразу, перезапуск проекта не нужен.</p>
       </div>
       <fieldset disabled={loading || syncing} className="appearance-fields">
         <SettingRow
-          label="主题"
-          description="跟随系统，或固定使用浅色、深色外观。"
+          label="Тема"
+          description="Следовать системе или всегда использовать светлое либо тёмное оформление."
         >
-          <div className="appearance-mode" role="group" aria-label="主题模式">
+          <div className="appearance-mode" role="group" aria-label="Режим темы">
             {[
-              ["light", "浅色", Sun],
-              ["dark", "深色", Moon],
-              ["system", "跟随系统", Monitor],
+              ["light", "Светлая", Sun],
+              ["dark", "Тёмная", Moon],
+              ["system", "Как в системе", Monitor],
             ].map(([mode, label, Icon]) => (
               <button
                 key={mode}
@@ -700,24 +700,24 @@ export function AppearanceSettings() {
             />
           ))}
         </div>
-        <h4>字体</h4>
+        <h4>Шрифты</h4>
         <SettingRow
-          label="界面字号"
-          description="调整导航、标签和设置中的文字大小。"
+          label="Размер шрифта интерфейса"
+          description="Меняет размер текста в навигации, подписях и настройках."
         >
           <FontSizeInput
-            label="界面字号"
+            label="Размер шрифта интерфейса"
             value={appearance.uiFontSize}
             min={12}
             onChange={(value) => patch({ uiFontSize: value })}
           />
         </SettingRow>
         <SettingRow
-          label="代码字号"
-          description="调整内置终端与代码预览的文字大小。"
+          label="Размер шрифта кода"
+          description="Меняет размер текста во встроенном терминале и просмотре кода."
         >
           <FontSizeInput
-            label="代码字号"
+            label="Размер шрифта кода"
             value={appearance.codeFontSize}
             min={10}
             onChange={(value) => patch({ codeFontSize: value })}
@@ -727,7 +727,7 @@ export function AppearanceSettings() {
           className="appearance-sample"
           style={{ fontFamily: theme.fonts.ui || systemUIFont }}
         >
-          <span>在熟悉的工作区，专注下一步。</span>
+          <span>В привычной рабочей области — к следующему шагу.</span>
           <code
             style={{
               fontFamily: theme.fonts.code || systemCodeFont,
@@ -737,47 +737,47 @@ export function AppearanceSettings() {
             const workspace = "Cage";
           </code>
         </div>
-        <h4>显示与交互</h4>
+        <h4>Отображение и взаимодействие</h4>
         <SettingRow
-          label="使用指针光标"
-          description="悬停在按钮等可交互元素上时显示手形。"
+          label="Курсор-указатель"
+          description="Показывает руку при наведении на кнопки и другие интерактивные элементы."
         >
           <label className="appearance-switch">
             <input
               type="checkbox"
               role="switch"
-              aria-label="使用指针光标"
+              aria-label="Курсор-указатель"
               checked={appearance.pointerCursors}
               onChange={(e) => patch({ pointerCursors: e.target.checked })}
             />
           </label>
         </SettingRow>
-        <SettingRow label="字体平滑">
+        <SettingRow label="Сглаживание шрифтов">
           <label className="appearance-switch">
             <input
               type="checkbox"
               role="switch"
-              aria-label="字体平滑"
+              aria-label="Сглаживание шрифтов"
               checked={appearance.fontSmoothing}
               onChange={(e) => patch({ fontSmoothing: e.target.checked })}
             />
           </label>
         </SettingRow>
-        <SettingRow label="减少动态效果">
+        <SettingRow label="Меньше анимации">
           <InlineSelect
-            aria-label="减少动态效果"
+            aria-label="Меньше анимации"
             value={appearance.reducedMotion}
             onValueChange={(next) => patch({ reducedMotion: next })}
           >
-            <option value="system">跟随系统</option>
-            <option value="on">开启</option>
-            <option value="off">关闭</option>
+            <option value="system">Как в системе</option>
+            <option value="on">Вкл.</option>
+            <option value="off">Выкл.</option>
           </InlineSelect>
         </SettingRow>
         <div className="appearance-import">
           <div>
-            <strong>沿用 Codex 的外观</strong>
-            <p>导入本机 Codex 当前的主题、配色与字体偏好。</p>
+            <strong>Использовать оформление Codex</strong>
+            <p>Импортировать текущую тему, цвета и шрифты Codex с этого компьютера.</p>
           </div>
           <button onClick={sync}>
             {syncing ? (
@@ -785,7 +785,7 @@ export function AppearanceSettings() {
             ) : (
               <Download size={15} />
             )}
-            从本机 Codex 同步
+            Синхронизировать с Codex
           </button>
         </div>
       </fieldset>
@@ -793,19 +793,19 @@ export function AppearanceSettings() {
         {saving ? (
           <>
             <LoaderCircle size={13} className="spin" />
-            正在保存…
+            Сохранение…
           </>
         ) : error ? (
           <>
-            <span>未保存</span>
+            <span>Не сохранено</span>
             <button className="text-button" onClick={retry}>
-              重试保存
+              Повторить сохранение
             </button>
           </>
         ) : (
           <>
             <Check size={14} />
-            {synced ? "已同步 Codex 外观" : "更改自动保存，即时生效"}
+            {synced ? "Оформление Codex синхронизировано" : "Изменения сохраняются автоматически и действуют сразу"}
           </>
         )}
       </div>

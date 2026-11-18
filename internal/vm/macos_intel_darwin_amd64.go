@@ -87,7 +87,7 @@ func (l *Lima) InstallIntelMacOS(ctx context.Context, profile, name string, log 
 		offset = info.Size()
 	}
 	disk := filepath.Join(inst.Dir, filenames.Disk)
-	fmt.Fprintln(log, "正在启动虚拟 Mac 的安装环境…整个系统安装通常需要 20–40 分钟，期间虚拟 Mac 会自动重启数次。")
+	fmt.Fprintln(log, "Запуск среды установки виртуальной Mac… Установка системы обычно занимает 20–40 минут, за это время виртуальная Mac несколько раз перезагрузится.")
 	started := make(chan error, 1)
 	go func() { started <- l.Start(instance.WithWatchHostAgentTimeout(ctx, intelInstallHardLimit), name, log) }()
 	ticker := time.NewTicker(2 * time.Second)
@@ -106,7 +106,7 @@ func (l *Lima) InstallIntelMacOS(ctx context.Context, profile, name string, log 
 			startFinished = true
 			started = nil
 		case <-ctx.Done():
-			return fmt.Errorf("Intel macOS 安装超过 %d 小时仍未完成，现有磁盘已保留：%w", int(intelInstallHardLimit.Hours()), ctx.Err())
+			return fmt.Errorf("Установка Intel macOS не завершилась за %d ч, существующий диск сохранён: %w", int(intelInstallHardLimit.Hours()), ctx.Err())
 		case <-ticker.C:
 		}
 		now := time.Now()
@@ -114,7 +114,7 @@ func (l *Lima) InstallIntelMacOS(ctx context.Context, profile, name string, log 
 			lastActive = now
 		}
 		if now.Sub(lastActive) > intelInstallStallLimit {
-			return fmt.Errorf("Intel macOS 安装已 %d 分钟没有磁盘或串口活动，判定为停滞；现有磁盘已保留，可继续原任务", int(intelInstallStallLimit.Minutes()))
+			return fmt.Errorf("Установка Intel macOS не проявляла активности на диске или последовательном порту %d минут и считается зависшей; существующий диск сохранён, задачу можно продолжить", int(intelInstallStallLimit.Minutes()))
 		}
 		if data, err := os.ReadFile(serial); err == nil && int64(len(data)) >= offset {
 			data = data[offset:]
@@ -122,31 +122,31 @@ func (l *Lima) InstallIntelMacOS(ctx context.Context, profile, name string, log 
 				stage = next
 				switch stage {
 				case "PREPARE":
-					fmt.Fprintln(log, "正在将安装映像写入虚拟 Mac 并校验…")
+					fmt.Fprintln(log, "Запись установочного образа в виртуальную Mac и проверка…")
 				case "START":
-					fmt.Fprintln(log, "Apple 安装程序已启动，正在准备安装…")
+					fmt.Fprintln(log, "Программа установки Apple запущена, идёт подготовка установки…")
 				case "ERROR":
-					return errors.New("虚拟 Mac 安装准备失败，现有磁盘已保留；请查看客机安装日志")
+					return errors.New("Не удалось подготовить установку виртуальной Mac, существующий диск сохранён; проверьте журнал установки гостевой системы")
 				}
 			}
 			if phase, percent, ok := intelMacOSInstallProgress(data); ok {
-				label := map[string]string{"copy": "写入并校验安装映像", "prepare": "Apple 安装程序正在准备"}[phase]
+				label := map[string]string{"copy": "Запись и проверка установочного образа", "prepare": "Программа установки Apple готовится"}[phase]
 				// Five-percent steps keep the operation log readable.
 				if next := fmt.Sprintf("%s %d", phase, percent/5*5); label != "" && next != progress {
 					progress = next
-					fmt.Fprintf(log, "%s：%d%%\n", label, percent/5*5)
+					fmt.Fprintf(log, "%s: %d%%\n", label, percent/5*5)
 				}
 			}
 			if count := intelMacOSBootCount(data); count > boots {
 				boots = count
 				if boots > 1 {
-					fmt.Fprintf(log, "虚拟 Mac 已第 %d 次启动（安装过程中会自动重启数次）…\n", boots)
+					fmt.Fprintf(log, "Виртуальная Mac запущена в %d-й раз (в процессе установки она автоматически перезагружается несколько раз)…\n", boots)
 				}
 			}
 		}
 		if now.Sub(lastBeat) >= intelInstallHeartbeat {
 			lastBeat = now
-			fmt.Fprintf(log, "系统安装进行中：已用时 %d 分钟，系统盘已写入 %.1f GB。\n", int(now.Sub(begun).Minutes()), float64(activity.diskBytes)/1e9)
+			fmt.Fprintf(log, "Идёт установка системы: прошло %d минут, на системный диск записано %.1f GB.\n", int(now.Sub(begun).Minutes()), float64(activity.diskBytes)/1e9)
 		}
 		if !startFinished {
 			continue
@@ -169,7 +169,7 @@ func (l *Lima) InstallIntelMacOS(ctx context.Context, profile, name string, log 
 			break
 		}
 	}
-	fmt.Fprintf(log, "macOS 系统安装完成，用时 %d 分钟。正在切换到正式运行配置…\n", int(time.Since(begun).Minutes()))
+	fmt.Fprintf(log, "Установка системы macOS завершена за %d минут. Переключение на рабочую конфигурацию…\n", int(time.Since(begun).Minutes()))
 	if err := l.StopIntelMacOS(ctx, profile, name); err != nil {
 		return err
 	}

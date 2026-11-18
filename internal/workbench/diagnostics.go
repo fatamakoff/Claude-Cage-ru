@@ -22,7 +22,7 @@ import (
 func (s *Server) diagnosticStatus(w http.ResponseWriter, r *http.Request) {
 	info, err := diagnostics.New(s.profile).Info()
 	if err != nil {
-		requestError(w, errors.New("无法读取诊断日志，请检查本机存储权限和剩余空间"))
+		requestError(w, errors.New("Не удалось прочитать журналы диагностики. Проверьте права доступа к локальному хранилищу и свободное место"))
 		return
 	}
 	jsonReply(w, info)
@@ -37,7 +37,7 @@ func (s *Server) diagnosticEvent(w http.ResponseWriter, r *http.Request) {
 	permitted := s.diagnosticCount <= 60
 	s.diagnosticRateMu.Unlock()
 	if !permitted {
-		http.Error(w, "诊断上报过于频繁", http.StatusTooManyRequests)
+		http.Error(w, "Слишком частая отправка диагностики", http.StatusTooManyRequests)
 		return
 	}
 
@@ -50,18 +50,18 @@ func (s *Server) diagnosticEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.Source != "frontend" && event.Source != "react" {
-		http.Error(w, "日志来源无效", 400)
+		http.Error(w, "Неверный источник журнала", 400)
 		return
 	}
 	if err := diagnostics.New(s.profile).Record(event.Level, event.Source, event.Message); err != nil {
-		http.Error(w, "诊断日志写入失败", 503)
+		http.Error(w, "Не удалось записать журнал диагностики", 503)
 		return
 	}
 	jsonReply(w, map[string]bool{"ok": true})
 }
 func (s *Server) diagnosticExport(w http.ResponseWriter, r *http.Request) {
 	if !s.diagnosticMu.TryLock() {
-		http.Error(w, "正在导出另一份诊断包，请稍候", 409)
+		http.Error(w, "Идёт экспорт другого пакета диагностики. Подождите", 409)
 		return
 	}
 	defer s.diagnosticMu.Unlock()
@@ -95,7 +95,7 @@ CAGE_DIAGNOSTIC_JOURNAL`)
 	}
 	var bundle bytes.Buffer
 	if err := diagnostics.New(s.profile).Export(&bundle, version.Version, guest, guestState); err != nil {
-		requestError(w, errors.New("诊断包生成失败，请检查存储权限和剩余空间"))
+		requestError(w, errors.New("Не удалось создать пакет диагностики. Проверьте права доступа к хранилищу и свободное место"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/zip")
@@ -122,7 +122,7 @@ func ExportAgentDiagnostics(configPath, destination string) error {
 
 func exportDiagnostics(configPath, connectionID, destination string, agentLocal bool) error {
 	if !filepath.IsAbs(destination) {
-		return errors.New("请选择本机绝对保存路径")
+		return errors.New("Выберите абсолютный путь сохранения на этом компьютере")
 	}
 	profile := filepath.Dir(configPath)
 	store := diagnostics.New(profile)
@@ -147,7 +147,7 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 		}
 		if e != nil {
 			if connectionID != "" && connectionID != "local" {
-				return errors.New("远程连接不可用，无法导出云端诊断包")
+				return errors.New("Удалённое подключение недоступно; экспорт облачного пакета диагностики невозможен")
 			}
 			if e := store.ImportLegacy(profile); e != nil {
 				return e
@@ -163,7 +163,7 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 			ticket := parsed.Fragment
 			code, e := c.call("POST", "/api/session", map[string]string{"token": ticket}, nil)
 			if e != nil || code != 200 {
-				return errors.New("无法创建诊断导出会话，请重新打开 Cage")
+				return errors.New("Не удалось создать сессию экспорта диагностики. Откройте Cage заново")
 			}
 			if _, err := c.bindConnection(connectionID); err != nil {
 				return err
@@ -180,14 +180,14 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 		}
 		defer response.Body.Close()
 		if response.StatusCode != 200 {
-			return errors.New("诊断包导出未完成，请重新打开 Cage 后重试")
+			return errors.New("Экспорт пакета диагностики не завершён. Откройте Cage заново и повторите")
 		}
 		if response.Header.Get("Content-Type") != "application/zip" {
-			return errors.New("当前后台尚不支持诊断导出，请重启应用")
+			return errors.New("Текущий фоновый сервис не поддерживает экспорт диагностики. Перезапустите приложение")
 		}
 		n, e := io.Copy(f, io.LimitReader(response.Body, (MaxDiagnosticBundle+1)))
 		if n > MaxDiagnosticBundle {
-			return errors.New("诊断包超过允许大小")
+			return errors.New("Пакет диагностики превышает допустимый размер")
 		}
 		return e
 	}
@@ -204,7 +204,7 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 	}
 	archive, err := zip.OpenReader(temp)
 	if err != nil {
-		return errors.New("诊断包未完整生成，请重新导出")
+		return errors.New("Пакет диагностики создан не полностью. Повторите экспорт")
 	}
 	_ = archive.Close()
 	if agentLocal {
@@ -212,7 +212,7 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 	}
 	// Never follow a destination symlink or replace a directory.
 	if st, e := os.Lstat(destination); e == nil && !st.Mode().IsRegular() {
-		return errors.New("请选择普通文件作为保存位置")
+		return errors.New("Выберите для сохранения обычный файл")
 	}
 	return os.Rename(temp, destination)
 }

@@ -84,10 +84,10 @@ func (s *Server) guestInstallView() (guestInstallView, error) {
 		}
 		catalog := pending.SourceKind == guestos.LinuxImageSource && canInstallCatalogLinux(pending.System) && pending.Source.Host.Arch == runtime.GOARCH
 		if !catalog && pending.System != v.System {
-			return v, errors.New("客户机安装记录与这台宿主不匹配")
+			return v, errors.New("Запись установки гостевой системы не соответствует этому хосту")
 		}
 		if pending.SourceKind == guestos.LinuxImageSource && !catalog {
-			return v, errors.New("客户机镜像架构与这台主机不匹配，请恢复原主机环境")
+			return v, errors.New("Архитектура образа гостевой системы не соответствует этому хосту, восстановите исходную среду хоста")
 		}
 		mac, err := guestos.LoadMacOSProfile(s.profile)
 		if err != nil {
@@ -110,7 +110,7 @@ func (s *Server) guestInstallView() (guestInstallView, error) {
 		return v, nil
 	}
 	if !hostimage.IsLinux(v.System) && !guestos.HasNativeWorkbenchKit(s.exe, v.System) {
-		v.Reason = "此构建缺少原生客户机安装组件"
+		v.Reason = "В этой сборке отсутствуют компоненты установки гостевой системы"
 		return v, nil
 	}
 	v.Available = true
@@ -119,7 +119,7 @@ func (s *Server) guestInstallView() (guestInstallView, error) {
 
 func (s *Server) guestInstallation(w http.ResponseWriter, r *http.Request) {
 	if !s.hasTrustedView(r) || !s.localVMStorage() {
-		http.Error(w, "请在本机 Cage 窗口选择客户机系统", http.StatusForbidden)
+		http.Error(w, "Выберите гостевую систему в окне Cage на этом компьютере", http.StatusForbidden)
 		return
 	}
 	v, err := s.guestInstallView()
@@ -146,7 +146,7 @@ func (s *Server) guestInstallation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !v.Reselect || s.busy() || !s.op.TryLock() {
-			http.Error(w, "安装任务或磁盘已存在，请继续原安装", http.StatusConflict)
+			http.Error(w, "Задача установки или диск уже существует, продолжите исходную установку", http.StatusConflict)
 			return
 		}
 		defer s.op.Unlock()
@@ -158,7 +158,7 @@ func (s *Server) guestInstallation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !v.Activate || !s.op.TryLock() {
-		http.Error(w, "客户机尚未完成安装", http.StatusConflict)
+		http.Error(w, "Установка гостевой системы ещё не завершена", http.StatusConflict)
 		return
 	}
 	if v.Pending != nil && v.Pending.System == guestos.Windows11 {
@@ -177,7 +177,7 @@ func (s *Server) guestInstallation(w http.ResponseWriter, r *http.Request) {
 func (s *Server) installedWindowsVMOwner(install guestos.Installation) (string, error) {
 	binding, err := guestos.LoadWindowsProfile(s.profile)
 	if err != nil || binding == nil || install.System != guestos.Windows11 || install.ID == uuid.Nil {
-		return "", errors.New("Windows 安装绑定尚未确认，请继续原安装；原磁盘和账户已保留")
+		return "", errors.New("Привязка установки Windows не подтверждена, продолжите исходную установку; исходный диск и аккаунт сохранены")
 	}
 	state, err := cage.StoragePhysicalPath(filepath.Join(s.profile, "state"))
 	if err != nil {
@@ -187,7 +187,7 @@ func (s *Server) installedWindowsVMOwner(install guestos.Installation) (string, 
 	receipt, err := os.ReadFile(filepath.Join(s.profile, "windows-install-vm.txt"))
 	id, parseErr := uuid.Parse(strings.TrimSpace(string(receipt)))
 	if err != nil || parseErr != nil || id != binding.VMID || !strings.EqualFold(filepath.Clean(binding.InstanceDirectory), filepath.Clean(expected)) {
-		return "", errors.New("Windows 安装记录与原客机不匹配，请核对原环境；现有数据已保留")
+		return "", errors.New("Запись установки Windows не соответствует исходной гостевой системе, сверьте исходную среду; существующие данные сохранены")
 	}
 	return "windows/" + binding.VMID.String() + "/Running", nil
 }
@@ -195,16 +195,16 @@ func (s *Server) installedWindowsVMOwner(install guestos.Installation) (string, 
 func (s *Server) resumePendingMacOSInstall(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	recovery, err := guestos.LoadMacOSInstallRecovery(s.profile)
 	if err != nil {
-		_ = diagnostics.New(s.profile).Record("warn", "macos-install-recovery", "继续原安装被拒绝，恢复入口身份校验未通过："+err.Error())
-		http.Error(w, "暂时无法确认安装恢复入口，请稍后重试；原磁盘和安装记录已保留", http.StatusConflict)
+		_ = diagnostics.New(s.profile).Record("warn", "macos-install-recovery", "Продолжение исходной установки отклонено, проверка подлинности точки восстановления не пройдена: "+err.Error())
+		http.Error(w, "Не удаётся подтвердить точку восстановления установки, повторите позже; исходный диск и запись установки сохранены", http.StatusConflict)
 		return
 	}
 	if recovery == nil || recovery.InstallationID != id {
-		http.Error(w, "请先准备与原客机身份匹配的恢复入口", http.StatusConflict)
+		http.Error(w, "Сначала подготовьте точку восстановления, соответствующую исходной гостевой системе", http.StatusConflict)
 		return
 	}
 	if !s.hasTrustedView(r) || s.macosGuest != nil || s.windowsGuest != nil || !s.localVMStorage() {
-		http.Error(w, "请在本机 Cage 窗口恢复原 macOS 安装", http.StatusForbidden)
+		http.Error(w, "Восстановите исходную установку macOS в окне Cage на этом компьютере", http.StatusForbidden)
 		return
 	}
 	s.beginGuestInstallMode(w, r, guestInstallRequest{System: guestos.MacOS}, true, recovery.User)
@@ -219,16 +219,16 @@ func (s *Server) beginGuestInstall(w http.ResponseWriter, r *http.Request, in gu
 // recovery prompt needs GUI authorization, everything else is diagnosed from
 // the operation details and the diagnostics bundle.
 func guestInstallFailureMessage(system string, err error) error {
-	next := "请在初始化页打开“操作详情”查看失败记录后点击「继续安装」；仍失败时在“日志与诊断”导出诊断包排查。"
+	next := "Откройте на странице инициализации «Детали операции», просмотрите запись о сбое и нажмите «Продолжить установку»; если сбой повторится, выгрузите пакет диагностики в разделе «Журналы и диагностика»."
 	if system == guestos.MacOS {
-		next = "请在初始化页打开“操作详情”查看失败记录后点击「继续安装」；只有页面出现“恢复 macOS 组件安装”提示时才需要打开恢复画面完成授权，其余失败可在“日志与诊断”导出诊断包排查。"
+		next = "Откройте на странице инициализации «Детали операции», просмотрите запись о сбое и нажмите «Продолжить установку»; экран восстановления нужен только при появлении подсказки «Восстановить установку компонентов macOS», остальные сбои разбираются по пакету диагностики в разделе «Журналы и диагностика»."
 	}
-	return fmt.Errorf("客户机安装未完成，已保留安装进度和文件。%s失败原因：%w", next, err)
+	return fmt.Errorf("Установка гостевой системы не завершена, прогресс установки и файлы сохранены. %sПричина сбоя: %w", next, err)
 }
 
 func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, in guestInstallRequest, guiAuthorize bool, recoveryUser string) {
 	if in.System == guestos.MacOS && !s.account.view().MacOSCredentialsReady {
-		http.Error(w, "请先注册或确认 Cage 账密，再安装 macOS 客机", http.StatusConflict)
+		http.Error(w, "Сначала зарегистрируйте или подтвердите аккаунт Cage, затем устанавливайте гостевую macOS", http.StatusConflict)
 		return
 	}
 	v, err := s.guestInstallView()
@@ -241,17 +241,17 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 		catalog = v.Pending.SourceKind == guestos.LinuxImageSource
 	}
 	if (!catalog && (!v.Available || v.System != in.System)) || !s.hasTrustedView(r) || (!v.Fresh && v.Pending == nil) || v.Activate {
-		http.Error(w, "当前环境无法安装所选客户机系统", http.StatusConflict)
+		http.Error(w, "В текущей среде нельзя установить выбранную гостевую систему", http.StatusConflict)
 		return
 	}
 	if v.HostMatchOnly && in.System == v.System && v.Pending == nil && in.CloneKey == "" {
-		requestError(w, errors.New("Intel Mac 请通过「自动匹配本机系统版本」选择 Apple 完整安装包"))
+		requestError(w, errors.New("Для Intel Mac выберите полный установочный пакет Apple через «Автоподбор версии системы хоста»"))
 		return
 	}
 	install := guestos.Installation{Version: 1, System: in.System, Media: in.Media, SHA256: strings.ToLower(in.SHA256), ID: uuid.New(), EditorTerms: in.EditorTerms}
 	if v.Pending != nil {
 		if v.Pending.System != in.System || (in.Media != "" && in.Media != v.Pending.Media) || (in.SHA256 != "" && !strings.EqualFold(in.SHA256, v.Pending.SHA256)) {
-			http.Error(w, "必须使用原先选择的系统和安装介质继续安装", http.StatusConflict)
+			http.Error(w, "Продолжить установку нужно с той же системой и тем же установочным носителем", http.StatusConflict)
 			return
 		}
 		install = *v.Pending
@@ -262,13 +262,13 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 			return
 		}
 		if plan.Key() != in.CloneKey || plan.Host.System != in.System {
-			requestError(w, errors.New("本机版本或系统镜像信息已变化，请重新检测并匹配"))
+			requestError(w, errors.New("Версия на этом компьютере или сведения об образе системы изменились, выполните проверку и сопоставление заново"))
 			return
 		}
 		install.Source = plan
 	} else if catalog {
 		if in.Media != "" || in.SHA256 != "" || in.EditorTerms {
-			requestError(w, errors.New("Ubuntu 使用 Cage 校验过的官方镜像，无需另选安装介质"))
+			requestError(w, errors.New("Ubuntu использует проверенный Cage официальный образ, отдельный установочный носитель не нужен"))
 			return
 		}
 		plan, err := linuxGuestImagePlan(r.Context(), s.profile, in.System, runtime.GOARCH)
@@ -283,7 +283,7 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 	s.launch(w, "guest-install", func() error {
-		s.jobs.execution().setSetupProgress(&SetupProgress{Phase: "image", System: install.System, Label: "正在准备 " + guestProgressName(install.System) + " 安装材料"})
+		s.jobs.execution().setSetupProgress(&SetupProgress{Phase: "image", System: install.System, Label: "Подготовка материалов установки " + guestProgressName(install.System)})
 		cfg, err := loadConfig(s.configPath)
 		if err != nil {
 			return err
@@ -301,12 +301,12 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 			return err
 		}
 		if current == nil && loc.HasEnvironment || current != nil && *current != install {
-			return errors.New("已有其他环境或安装任务，请重新打开安装页面")
+			return errors.New("Уже есть другая среда или задача установки, откройте страницу установки заново")
 		}
 		if install.Media != "" {
 			f, err := os.Stat(install.Media)
 			if err != nil || !f.Mode().IsRegular() {
-				return errors.New("原安装镜像不可读，请恢复其原路径后重试")
+				return errors.New("Исходный установочный образ недоступен для чтения, восстановите его исходный путь и повторите")
 			}
 		}
 		if install.System == guestos.Windows11 {
@@ -333,9 +333,9 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 			}
 			minimumGiB += int((install.Source.RemainingBytes(cache) + (1 << 30) - 1) / (1 << 30))
 			if available, ok := host.FreeGiB(cache); ok && available < minimumGiB {
-				return fmt.Errorf("创建所选系统至少需要 %d GiB 可用空间，当前有 %d GiB，请在存储设置中选择空间充足的位置", minimumGiB, available)
+				return fmt.Errorf("Для создания выбранной системы нужно не менее %d GiB свободного места, сейчас доступно %d GiB; выберите в настройках хранилища расположение с достаточным объёмом", minimumGiB, available)
 			}
-			s.setMessage("正在准备 " + guestProgressName(install.System) + " 官方系统镜像…")
+			s.setMessage("Подготовка официального образа системы " + guestProgressName(install.System) + "…")
 			transport := hostproxy.NewTransport()
 			defer transport.CloseIdleConnections()
 			prepared, prepareErr := hostimage.Prepare(s.operationContext(), cache, install.Source, s.jobs.execution(), transport)
@@ -359,7 +359,7 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 				return err
 			}
 			if saved == "" && !unstarted {
-				return errors.New("客机安装凭据缺失，请恢复加密保险箱；现有账户和磁盘已保留")
+				return errors.New("Отсутствуют учётные данные установки гостевой системы, восстановите зашифрованное хранилище; существующий аккаунт и диск сохранены")
 			}
 			credential, err = s.account.macGuestCredentials(s.operationContext(), install.ID)
 			if err != nil {
@@ -368,13 +368,13 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 			if guiAuthorize {
 				recovery, err := guestos.LoadMacOSInstallRecovery(s.profile)
 				if err != nil {
-					_ = diagnostics.New(s.profile).Record("warn", "guest-install", "恢复入口身份校验未通过："+err.Error())
-					return errors.New("暂时无法核对原安装恢复入口，请稍后重试；原磁盘和安装记录已保留")
+					_ = diagnostics.New(s.profile).Record("warn", "guest-install", "Проверка подлинности точки восстановления не пройдена: "+err.Error())
+					return errors.New("Не удаётся сверить точку восстановления исходной установки, повторите позже; исходный диск и запись установки сохранены")
 				}
 				if recovery == nil || recovery.InstallationID != install.ID || recovery.User != credential.Username || recovery.User != recoveryUser {
-					_ = diagnostics.New(s.profile).Record("warn", "guest-install", fmt.Sprintf("恢复入口与本次安装身份不一致 record_present=%t installation_match=%t user_match=%t",
+					_ = diagnostics.New(s.profile).Record("warn", "guest-install", fmt.Sprintf("Точка восстановления не совпадает с текущей установкой record_present=%t installation_match=%t user_match=%t",
 						recovery != nil, recovery != nil && recovery.InstallationID == install.ID, recovery != nil && recovery.User == credential.Username && recovery.User == recoveryUser))
-					return errors.New("恢复入口与原安装身份不一致，请在初始化页重新准备恢复入口；原磁盘和安装记录已保留")
+					return errors.New("Точка восстановления не совпадает с исходной установкой, подготовьте её заново на странице инициализации; исходный диск и запись установки сохранены")
 				}
 			}
 		}
@@ -390,8 +390,8 @@ func (s *Server) beginGuestInstallMode(w http.ResponseWriter, r *http.Request, i
 			}
 			return guestos.FinishLinuxInstallation(s.profile, install.ID)
 		}
-		s.setMessage("正在安装所选客户机系统…")
-		s.jobs.execution().setSetupProgress(&SetupProgress{Phase: "packages", System: install.System, Label: "正在安装 " + guestProgressName(install.System) + " 系统"})
+		s.setMessage("Установка выбранной гостевой системы…")
+		s.jobs.execution().setSetupProgress(&SetupProgress{Phase: "packages", System: install.System, Label: "Установка системы " + guestProgressName(install.System)})
 		var cmd *exec.Cmd
 		if install.System == guestos.MacOS {
 			cmd = exec.CommandContext(s.operationContext(), s.exe, "guest-os", "macos", "install")

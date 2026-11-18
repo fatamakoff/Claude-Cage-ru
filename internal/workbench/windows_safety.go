@@ -38,7 +38,7 @@ func (s *Server) windowsGuestObservation(ctx context.Context, input map[string]a
 	var output bytes.Buffer
 	cmd.Stdout = &boundedWindowsStatusWriter{buffer: &output, remaining: 64 << 10}
 	if err = cmd.Run(); err != nil {
-		return observation, errors.New("Windows 客机检测未返回完整结果")
+		return observation, errors.New("Проверка гостевой системы Windows не вернула полный результат")
 	}
 	var failure struct {
 		Error      string `json:"error"`
@@ -63,21 +63,21 @@ func decodeWindowsObservation(data []byte) (guestObservation, error) {
 		Stage string `json:"stage"`
 	}
 	if json.Unmarshal(data, &status) != nil {
-		return observation, errors.New("Windows 客机检查没有完成，外网保持关闭；请查看具体检查阶段后重试")
+		return observation, errors.New("Проверка гостевой системы Windows не завершена, внешняя сеть остаётся отключённой. Проверьте этап проверки и повторите")
 	}
 	if status.Error != "" {
-		stage := map[string]string{"request": "请求校验", "environment": "系统读回", "network": "代理与 DNS", "public-tcp": "公网连接约束", "udp": "UDP 约束", "dns": "公共 DNS 约束", "project-grant": "项目授权", "shared-read": "共享文件读取", "shared-write": "共享文件写回", "private-scope": "私有目录约束"}[status.Stage]
+		stage := map[string]string{"request": "проверка запроса", "environment": "чтение системных настроек", "network": "прокси и DNS", "public-tcp": "ограничения публичных подключений", "udp": "ограничения UDP", "dns": "ограничения публичного DNS", "project-grant": "авторизация проекта", "shared-read": "чтение общих файлов", "shared-write": "запись общих файлов", "private-scope": "ограничения приватного каталога"}[status.Stage]
 		if stage == "" {
-			stage = "客机"
+			stage = "гостевая система"
 		}
-		return observation, errors.New("Windows " + stage + "检查没有完成，外网保持关闭")
+		return observation, errors.New("Windows: этап «" + stage + "» не пройден, внешняя сеть остаётся отключённой")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if decoder.Decode(&observation) != nil || decoder.Decode(new(any)) != io.EOF {
-		return observation, errors.New("Windows 客机检测返回无效结果")
+		return observation, errors.New("Проверка гостевой системы Windows вернула недопустимый результат")
 	}
 	if observation.TZ == "" || observation.SystemTimezone == "" || observation.ProcessLocale == "" || observation.SystemLocale == "" || !observation.LocaleValid {
-		return observation, errors.New("Windows 客机检查缺少系统读回结果，外网保持关闭")
+		return observation, errors.New("В проверке гостевой системы Windows отсутствуют считанные системные настройки; внешняя сеть остаётся отключённой")
 	}
 	return observation, nil
 }
@@ -137,7 +137,7 @@ func effectiveWindowsZone(zone string) string {
 func (s *Server) windowsBoundaryInput(root, private, shared, challenge string, input map[string]any) error {
 	project, err := s.windowsProjectForHost(root)
 	if err != nil || project == nil {
-		return errors.New("Windows 环境目录尚未连接")
+		return errors.New("Каталог среды Windows ещё не подключён")
 	}
 	input["project_id"] = project.ID
 	input["grant"] = project.Grant
@@ -163,13 +163,13 @@ func (s *Server) applyWindowsGuestSettings(ctx context.Context, cfg cage.Config)
 	var output bytes.Buffer
 	cmd.Stdout = &boundedWindowsStatusWriter{buffer: &output, remaining: 4096}
 	if err = cmd.Run(); err != nil {
-		return errors.New("Windows 客机系统设置未能完成确认，外网保持关闭；请重试应用并核对实际设置")
+		return errors.New("Не удалось подтвердить системные настройки гостевой системы Windows; внешняя сеть остаётся отключённой. Повторите применение и проверьте фактические настройки")
 	}
 	var result struct {
 		OK bool `json:"ok"`
 	}
 	if json.Unmarshal(output.Bytes(), &result) != nil || !result.OK {
-		return errors.New("Windows 客机系统设置未得到完成确认")
+		return errors.New("Системные настройки гостевой системы Windows не подтверждены")
 	}
 	return nil
 }

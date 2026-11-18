@@ -69,7 +69,7 @@ func newNetwork(cfg cage.Config, identity *guestidentity.Identity) (*Network, er
 	configuration := networkConfiguration(gate, identity)
 	stack, err := virtualnetwork.New(&configuration)
 	if err != nil {
-		gate.Close("容器网络初始化失败")
+		gate.Close("Не удалось инициализировать сеть контейнера")
 		return nil, err
 	}
 	guestMAC, _ := net.ParseMAC(configuration.DHCPStaticLeases[GuestIP])
@@ -81,7 +81,7 @@ func newNetwork(cfg cage.Config, identity *guestidentity.Identity) (*Network, er
 func (n *Network) Run(ctx context.Context, endpoint net.Conn) error {
 	stop := context.AfterFunc(ctx, func() { _ = endpoint.Close() })
 	defer stop()
-	defer n.Gate.Close("容器网络连接已断开")
+	defer n.Gate.Close("Соединение с сетью контейнера разорвано")
 	defer endpoint.Close()
 	return n.stack.AcceptQemu(ctx, &boundedFrameConnection{Conn: endpoint, sourceMAC: n.guestMAC})
 }
@@ -91,7 +91,7 @@ func (n *Network) Run(ctx context.Context, endpoint net.Conn) error {
 func (n *Network) ServeSSH(ctx context.Context, listener net.Listener) error {
 	address, ok := listener.Addr().(*net.TCPAddr)
 	if !ok || !address.IP.IsLoopback() {
-		return errors.New("容器 SSH 入口必须监听本机回环地址")
+		return errors.New("SSH-вход контейнера должен прослушивать локальный адрес обратной связи")
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	stop := context.AfterFunc(ctx, func() { _ = listener.Close() })

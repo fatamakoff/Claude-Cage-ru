@@ -119,7 +119,7 @@ func BindNewMacOSProfile(profile, user string, hostKey []byte, id uuid.UUID) err
 		return err
 	}
 	if install == nil || id == uuid.Nil || install.ID != id || install.System != MacOS {
-		return errors.New("首次设置与当前安装记录不匹配")
+		return errors.New("Первая настройка не совпадает с текущей записью установки")
 	}
 	recovery, err := LoadMacOSInstallRecovery(profile)
 	if err != nil {
@@ -127,7 +127,7 @@ func BindNewMacOSProfile(profile, user string, hostKey []byte, id uuid.UUID) err
 	}
 	if recovery == nil || recovery.InstallationID != id || recovery.User != user ||
 		recovery.Phase != MacOSInstallServicesPrepared {
-		return errors.New("macOS 客机尚未完成组件和服务置备")
+		return errors.New("Гостевая система macOS ещё не завершила подготовку компонентов и служб")
 	}
 	if err := bindMacOSProfile(profile, user, hostKey, id.String()); err != nil {
 		return err
@@ -159,7 +159,7 @@ func bindMacOSProfile(profile, user string, hostKey []byte, setupID string) erro
 	}
 	if identity != nil {
 		if setupID != "" && setupID != identity.Installation.String() {
-			return errors.New("Intel macOS 安装身份不一致")
+			return errors.New("Несовпадение идентичности установки Intel macOS")
 		}
 		m.Version, m.Backend, m.UUID = 2, MacOSQEMU, identity.UUID
 	}
@@ -220,7 +220,7 @@ func FinishMacOSSetup(profile, setupID string) error {
 		return err
 	}
 	if bound == nil || !validSetupID(setupID) || bound.SetupID != setupID {
-		return errors.New("首次设置已关闭或安装实例已变更")
+		return errors.New("Первая настройка закрыта или экземпляр установки изменился")
 	}
 	bound.SetupID = ""
 	data, err := json.Marshal(bound)

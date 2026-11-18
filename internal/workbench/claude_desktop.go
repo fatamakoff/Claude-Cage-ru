@@ -44,7 +44,7 @@ func (s *Server) claudeDesktopStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.vmRunning() {
-		http.Error(w, "请先启动 Cage 环境", 409)
+		http.Error(w, "Сначала запустите среду Cage", 409)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
@@ -64,11 +64,11 @@ func (s *Server) claudeDesktopStatus(w http.ResponseWriter, r *http.Request) {
 	var state claudeDesktopState
 	if err != nil {
 		_ = diagnostics.New(s.profile).Record("warn", "claude-desktop", fmt.Sprintf("read state: %v", err))
-		http.Error(w, usererror.Wrap("读取 Claude Desktop 状态", err, "请确认环境仍在运行；重新连接后再打开应用。持续失败时导出诊断包。").Error(), 502)
+		http.Error(w, usererror.Wrap("Чтение состояния Claude Desktop", err, "Убедитесь, что среда всё ещё работает; восстановите соединение и снова откройте приложение. Если ошибка повторяется, экспортируйте пакет диагностики.").Error(), 502)
 		return
 	}
 	if json.Unmarshal(b, &state) != nil {
-		http.Error(w, "读取 Claude Desktop 状态失败：环境返回的应用状态格式无效。请更新环境组件；仍失败时导出诊断包。", 502)
+		http.Error(w, "Не удалось прочитать состояние Claude Desktop: среда вернула недопустимый формат состояния приложения. Обновите компоненты среды; если ошибка повторяется, экспортируйте пакет диагностики.", 502)
 		return
 	}
 	jsonReply(w, state)
@@ -88,7 +88,7 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.vmRunning() {
-		http.Error(w, "请先启动 Cage 环境", 409)
+		http.Error(w, "Сначала запустите среду Cage", 409)
 		return
 	}
 	s.launch(w, "claude-desktop-"+action, func() error {
@@ -96,10 +96,10 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 		defer s.desktopStatus.invalidate()
 		if s.windowsGuest != nil {
 			if action == "update" {
-				return errors.New("请使用 Claude Desktop 应用内的更新入口")
+				return errors.New("Используйте обновление внутри приложения Claude Desktop")
 			}
 			if action == "install" {
-				return errors.New("Windows 客机的自动安装尚未接通，请保留已有官方应用")
+				return errors.New("Автоматическая установка в гостевой системе Windows пока не подключена; оставьте установленное официальное приложение")
 			}
 			return s.windowsDesktopRequest(s.operationContext(), action, nil, nil)
 		}
@@ -109,7 +109,7 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 			allowed := s.toolsNetworkAllowedLocked()
 			s.mu.Unlock()
 			if !allowed {
-				return errors.New("工作台正在退出，请稍后重试安装")
+				return errors.New("Рабочая область завершает работу, повторите установку позже")
 			}
 			monitorContext, stopMonitor := context.WithCancel(s.operationContext())
 			done := make(chan struct{})
@@ -135,7 +135,7 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 				s.mu.Unlock()
 				<-done
 			}()
-			s.setMessage("正在下载并安装 Claude Desktop，可在操作详情查看进度…")
+			s.setMessage("Загрузка и установка Claude Desktop; прогресс смотрите в подробностях операции…")
 			script := cage.ClaudeDesktopInstallScript()
 			if action == "update" {
 				script = "set -e\nsudo systemctl stop cage-claude-desktop.service\n" + script
@@ -144,7 +144,7 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 		case "start":
 			return s.startClaudeDesktop()
 		default:
-			s.setMessage("正在关闭 Claude Desktop…")
+			s.setMessage("Закрытие Claude Desktop…")
 			return s.runDesktopScript("sudo systemctl stop cage-claude-desktop.service", 30*time.Second)
 		}
 	})
@@ -154,13 +154,13 @@ func (s *Server) startClaudeDesktop() error {
 	defer func() { s.desktopViews.reset(); s.desktopViews.background(s.changeDesktopVisibility) }()
 	s.desktopStatus.invalidate()
 	defer s.desktopStatus.invalidate()
-	s.setMessage("正在打开 Claude Desktop…")
+	s.setMessage("Открытие Claude Desktop…")
 	key, err := s.account.desktopKey()
 	if err != nil {
 		return err
 	}
 	defer clear(key)
-	script := `test "$(dpkg-query -W -f='${Status}' claude-desktop 2>/dev/null)" = 'install ok installed' || { echo '请先安装 Claude Desktop。'; exit 1; }
+	script := `test "$(dpkg-query -W -f='${Status}' claude-desktop 2>/dev/null)" = 'install ok installed' || { echo 'Сначала установите Claude Desktop.'; exit 1; }
 ` + cage.ClaudeDesktopProvisionScript()
 	if err = s.runDesktopScript(script, 20*time.Second); err != nil {
 		return err
@@ -171,7 +171,7 @@ func (s *Server) startClaudeDesktop() error {
 	cmd.Stdin = bytes.NewReader(key)
 	cmd.Stdout, cmd.Stderr = s.jobs.execution(), s.jobs.execution()
 	if err = cmd.Run(); err != nil {
-		return executionFailure("打开 Claude Desktop", errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
+		return executionFailure("Открытие Claude Desktop", errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func (s *Server) runDesktopScript(script string, timeout time.Duration) error {
 			_, _ = s.guest(cleanup, "sudo systemctl stop cage-desktop-operation.service")
 			return ctx.Err()
 		}
-		return executionFailure("准备或关闭 Claude Desktop", err, s.jobs.snapshot().Log)
+		return executionFailure("Подготовка или закрытие Claude Desktop", err, s.jobs.snapshot().Log)
 	}
 	return nil
 }
@@ -223,7 +223,7 @@ else echo; fi
 if test -f /run/cage-desktop/xsettings.pid; then echo dynamic; fi`)
 	password, scale, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
 	if err != nil || len(password) != 8 {
-		http.Error(w, "Claude Desktop 尚未启动", 409)
+		http.Error(w, "Claude Desktop ещё не запущен", 409)
 		return
 	}
 	// With a settings manager the viewer chooses the density of its own screen.
@@ -253,7 +253,7 @@ func (s *Server) claudeDesktopResize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Width < 320 || input.Height < 240 || input.Width > 8192 || input.Height > 8192 || !validDisplayDensity(input.Scale) {
-		http.Error(w, "画面尺寸无效", 400)
+		http.Error(w, "Недопустимый размер экрана", 400)
 		return
 	}
 	if s.windowsGuest != nil {
@@ -275,7 +275,7 @@ func (s *Server) claudeDesktopResize(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	output, err := s.guestQuick(ctx, script)
 	if err != nil {
-		http.Error(w, "Claude Desktop 画面尺寸未能调整", 502)
+		http.Error(w, "Не удалось изменить размер экрана Claude Desktop", 502)
 		return
 	}
 	reply := map[string]any{"ok": true}
@@ -334,12 +334,12 @@ func (s *Server) claudeDesktopVNC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.vmRunning() {
-		http.Error(w, "环境尚未启动", 409)
+		http.Error(w, "Среда ещё не запущена", 409)
 		return
 	}
 	release, err := s.acquireDesktopView()
 	if err != nil {
-		http.Error(w, "无法恢复 Claude Desktop 画面，请重新连接", http.StatusBadGateway)
+		http.Error(w, "Не удалось восстановить экран Claude Desktop, переподключитесь", http.StatusBadGateway)
 		return
 	}
 	defer release()
@@ -350,19 +350,19 @@ func (s *Server) claudeDesktopVNC(w http.ResponseWriter, r *http.Request) {
 	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", "exec socat STDIO UNIX-CONNECT:/run/cage-desktop/vnc.sock")
 	reader, err := cmd.StdoutPipe()
 	if err != nil {
-		http.Error(w, "无法连接应用画面", 502)
+		http.Error(w, "Не удалось подключиться к экрану приложения", 502)
 		return
 	}
 	writer, err := cmd.StdinPipe()
 	if err != nil {
 		_ = reader.Close()
-		http.Error(w, "无法连接应用画面", 502)
+		http.Error(w, "Не удалось подключиться к экрану приложения", 502)
 		return
 	}
 	if err = cmd.Start(); err != nil {
 		_ = reader.Close()
 		_ = writer.Close()
-		http.Error(w, "无法连接应用画面", 502)
+		http.Error(w, "Не удалось подключиться к экрану приложения", 502)
 		return
 	}
 	defer func() { cancel(); writer.Close(); reader.Close(); _ = cmd.Wait() }()

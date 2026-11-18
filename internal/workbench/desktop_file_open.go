@@ -30,7 +30,7 @@ type desktopFileOpen struct {
 // Both lexical traversal and a host-side symlink out of the project are denied.
 func resolveProjectFilePath(guest string, projects []string) (string, error) {
 	if !pathpkg.IsAbs(guest) || pathpkg.Clean(guest) != guest || strings.ContainsAny(guest, "\x00\\") {
-		return "", errors.New("文件位置无效")
+		return "", errors.New("Недопустимое расположение файла")
 	}
 	for _, project := range projects {
 		if isClientMountPath(project) {
@@ -46,19 +46,19 @@ func resolveProjectFilePath(guest string, projects []string) (string, error) {
 		}
 		target, err := filepath.EvalSymlinks(filepath.Join(hostRoot, filepath.FromSlash(strings.TrimPrefix(guest, root))))
 		if err != nil {
-			return "", errors.New("文件已移动、删除或无法访问")
+			return "", errors.New("Файл был перемещён, удалён или недоступен")
 		}
 		relative, err := filepath.Rel(hostRoot, target)
 		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-			return "", errors.New("文件指向 Cage 项目目录之外，无法打开")
+			return "", errors.New("Файл находится вне каталога проекта Cage, открыть нельзя")
 		}
 		info, err := os.Stat(target)
 		if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
-			return "", errors.New("请选择 Cage 项目中的普通文件或文件夹")
+			return "", errors.New("Выберите обычный файл или папку в проекте Cage")
 		}
 		return target, nil
 	}
-	return "", errors.New("只能打开 Cage 项目目录中的文件和文件夹")
+	return "", errors.New("Можно открывать только файлы и папки в каталоге проекта Cage")
 }
 
 func (s *Server) resolveDesktopProjectFile(guest string, projects []string) (string, error) {
@@ -68,11 +68,11 @@ func (s *Server) resolveDesktopProjectFile(guest string, projects []string) (str
 	if s.windowsGuest != nil {
 		guest = strings.ReplaceAll(guest, "\\", "/")
 		if !windowsCLIAbsolutePath(guest) || strings.Contains(guest[2:], ":") {
-			return "", errors.New("文件位置无效")
+			return "", errors.New("Недопустимое расположение файла")
 		}
 	}
 	if pathpkg.Clean(guest) != guest || strings.ContainsAny(guest, "\x00\\") {
-		return "", errors.New("文件位置无效")
+		return "", errors.New("Недопустимое расположение файла")
 	}
 	for _, project := range projects {
 		if isClientMountPath(project) {
@@ -95,7 +95,7 @@ func (s *Server) resolveDesktopProjectFile(guest string, projects []string) (str
 		mapped := strings.TrimRight(guestPath(project), "/") + guest[len(root):]
 		return resolveProjectFilePath(mapped, []string{project})
 	}
-	return "", errors.New("只能打开已授权 Cage 项目中的文件和文件夹")
+	return "", errors.New("Можно открывать только файлы и папки в авторизованных проектах Cage")
 }
 
 func (s *Server) desktopFileOpenAction(w http.ResponseWriter, r *http.Request) {
@@ -108,11 +108,11 @@ func (s *Server) desktopFileOpenAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !browserFileID.MatchString(input.ID) || (input.Stage != "claim" && input.Stage != "complete") {
-		http.Error(w, "文件打开请求无效", 400)
+		http.Error(w, "Недопустимый запрос на открытие файла", 400)
 		return
 	}
 	if !s.fileTargetReady("desktop", "") {
-		http.Error(w, "环境尚未就绪", 409)
+		http.Error(w, "Среда ещё не готова", 409)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
@@ -134,12 +134,12 @@ func (s *Server) desktopFileOpenAction(w http.ResponseWriter, r *http.Request) {
 	if message, _ := result["error"].(string); message != "" {
 		err = errors.New(message)
 	} else if action != "open" && action != "reveal" {
-		err = errors.New("文件打开操作无效")
+		err = errors.New("Недопустимая операция открытия файла")
 	} else if download != "" && (s.macosGuest != nil || s.windowsGuest != nil) {
 		var saved browserDownloadInfo
 		saved, err = s.downloadInfo(ctx, download)
 		if err == nil && saved.State != "saved" {
-			err = errors.New("文件尚未完整保存到主机，请稍后重新打开")
+			err = errors.New("Файл ещё не полностью сохранён на хосте, откройте его позже")
 		}
 		target = saved.Path
 		if err == nil && result["directory"] == true {
@@ -167,7 +167,7 @@ func (s *Server) desktopFileOpenAction(w http.ResponseWriter, r *http.Request) {
 // supplies only an opaque ID; the authenticated local controller owns its path.
 func DesktopFileForConnection(configPath, connectionID, id string) (map[string]any, error) {
 	if !browserFileID.MatchString(id) {
-		return nil, errors.New("文件打开标识无效")
+		return nil, errors.New("Недопустимый идентификатор открытия файла")
 	}
 	client, err := connectController(filepath.Dir(configPath))
 	if err != nil {
@@ -177,7 +177,7 @@ func DesktopFileForConnection(configPath, connectionID, id string) (map[string]a
 	entry, _ := url.Parse(client.launch.URL)
 	status, err := client.call("POST", "/api/session", map[string]string{"token": entry.Fragment}, nil)
 	if err != nil || status != 200 {
-		return nil, errors.New("无法连接文件操作会话")
+		return nil, errors.New("Не удалось подключиться к сессии работы с файлами")
 	}
 	connection, err := client.bindConnection(connectionID)
 	if err != nil {
@@ -192,9 +192,9 @@ func DesktopFileForConnection(configPath, connectionID, id string) (map[string]a
 		return map[string]any{"handled": true}, nil
 	}
 	if connection.Mode == "remote" {
-		err = errors.New("此文件位于远程环境，请先在下载列表中保存到本机")
+		err = errors.New("Этот файл находится в удалённой среде, сначала сохраните его на этот компьютер через список загрузок")
 	} else if request.ID != id || !filepath.IsAbs(request.Path) || (request.Action != "open" && request.Action != "reveal") {
-		err = errors.New("文件打开响应无效")
+		err = errors.New("Недопустимый ответ на открытие файла")
 	} else {
 		err = openHostFile(request.Path, request.Action)
 	}
@@ -219,22 +219,22 @@ func desktopOpenCall(client *controllerClient, input map[string]string, output a
 	request.Header.Set("Content-Type", "application/json")
 	response, err := client.client.Do(request)
 	if err != nil {
-		return errors.New("文件操作连接已中断，请重新打开")
+		return errors.New("Соединение для работы с файлами прервано, откройте файл заново")
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(response.Body, 65537))
 	if err != nil || len(data) > 65536 {
-		return errors.New("文件操作响应无效")
+		return errors.New("Недопустимый ответ операции с файлом")
 	}
 	if response.StatusCode != http.StatusOK {
 		message := strings.TrimSpace(string(data))
 		if message == "" {
-			message = "文件打开请求已失效，请重新操作"
+			message = "Запрос на открытие файла устарел, повторите операцию"
 		}
 		return errors.New(message)
 	}
 	if output != nil && json.Unmarshal(data, output) != nil {
-		return errors.New("文件操作响应无效")
+		return errors.New("Недопустимый ответ операции с файлом")
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func hostFileCommand(platform, path, action string, directory bool) *exec.Cmd {
 func openHostFile(path, action string) error {
 	info, err := os.Stat(path)
 	if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
-		return errors.New("文件已移动、删除或无法访问")
+		return errors.New("Файл был перемещён, удалён или недоступен")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -275,11 +275,11 @@ func openHostFile(path, action string) error {
 	host.HideCommandWindow(cmd)
 	if err = cmd.Run(); err != nil {
 		if runtime.GOOS != "linux" || action != "reveal" {
-			return errors.New("无法打开本机文件或文件管理器，请检查默认应用和文件权限")
+			return errors.New("Не удалось открыть файл или файловый менеджер на этом компьютере, проверьте приложение по умолчанию и права на файл")
 		}
 		fallback := exec.CommandContext(ctx, "gio", "open", filepath.Dir(path))
 		if fallback.Run() != nil {
-			return errors.New("无法打开本机文件管理器，请检查桌面环境和文件权限")
+			return errors.New("Не удалось открыть файловый менеджер на этом компьютере, проверьте графическую среду и права на файл")
 		}
 	}
 	return nil

@@ -266,7 +266,7 @@ func downloadRecoveryRanges(ctx context.Context, client *http.Client, address, t
 				chunkSize = max(1, (end-offset+1)/2)
 			}
 			if failures >= 5 {
-				return fmt.Errorf("下载 Apple 恢复镜像中断（已保存 %d/%d 字节）: %w", offset, size, copyErr)
+				return fmt.Errorf("Загрузка образа восстановления Apple прервана (сохранено %d из %d байт): %w", offset, size, copyErr)
 			}
 			continue
 		}

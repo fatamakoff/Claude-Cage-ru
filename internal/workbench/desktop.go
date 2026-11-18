@@ -77,7 +77,7 @@ func openController(profile string) (*controllerClient, error) {
 	}
 	var record controlFile
 	if json.Unmarshal(b, &record) != nil || record.Port < 1024 || record.Port > 65535 || len(record.Token) != 64 || record.PID < 1 {
-		return nil, errors.New("后台记录无效，请保留现有环境并检查私有配置。")
+		return nil, errors.New("Запись фонового сервиса недействительна. Сохраните текущую среду и проверьте приватную конфигурацию.")
 	}
 	jar, _ := cookiejar.New(nil)
 	c := &controllerClient{profile: profile, record: record, origin: fmt.Sprintf("http://localhost:%d", record.Port), client: &http.Client{Timeout: controllerRequestTimeout, Jar: jar, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect refused") }}}
@@ -116,16 +116,16 @@ func connectController(profile string) (*controllerClient, error) {
 		if controllerLockFree(profile) {
 			return nil, errControllerUnavailable
 		}
-		return nil, errors.New("无法认证已有后台，未尝试终止或替换它。")
+		return nil, errors.New("Не удалось аутентифицировать существующий фоновый сервис; останавливать или заменять его не стали.")
 	}
 	u, err := url.Parse(c.launch.URL)
 	if err != nil || u.Scheme != "http" || u.Host != fmt.Sprintf("localhost:%d", record.Port) || u.User != nil || u.Fragment == "" {
 		c.close()
-		return nil, errors.New("后台返回了无效入口，未连接旧工作台。")
+		return nil, errors.New("Фоновый сервис вернул неверную точку входа; подключение к старой рабочей области не выполнено.")
 	}
 	if c.launch.Controller.Protocol != 0 && c.launch.Controller.PID != record.PID {
 		c.close()
-		return nil, errors.New("后台身份已变化，请重试连接。")
+		return nil, errors.New("Идентичность фонового сервиса изменилась. Повторите подключение.")
 	}
 	return c, nil
 }
@@ -158,7 +158,7 @@ func waitControllerReady(ctx context.Context, profile string) (*controllerClient
 		}
 		select {
 		case <-ctx.Done():
-			return nil, errors.New("本机后台尚未退出或仍未响应，请稍后重试")
+			return nil, errors.New("Локальный фоновый сервис ещё не завершился или не отвечает. Повторите позже")
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
@@ -198,13 +198,13 @@ func (c *controllerClient) callContext(ctx context.Context, method, path string,
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK && output != nil {
 		if err = json.NewDecoder(io.LimitReader(res.Body, 256<<10)).Decode(output); err != nil {
-			return res.StatusCode, errors.New("后台响应无效，未继续更新。")
+			return res.StatusCode, errors.New("Неверный ответ фонового сервиса; обновление не продолжено.")
 		}
 	}
 	return res.StatusCode, nil
 }
 func pendingUpdate(c *controllerClient) DesktopResult {
-	return DesktopResult{Status: "upgrade_pending", Legacy: c.launch.Controller.Protocol == 0, Controller: c.launch.Controller, Message: "新版已准备好，当前后台仍在运行。请先打开现有环境保存文件，再选择“保存后停止环境并完成更新”。终端任务会结束，项目和登录状态会保留。"}
+	return DesktopResult{Status: "upgrade_pending", Legacy: c.launch.Controller.Protocol == 0, Controller: c.launch.Controller, Message: "Новая версия готова, но текущий фоновый сервис ещё работает. Сначала откройте текущую среду и сохраните файлы, затем выберите «Сохранить, остановить среду и завершить обновление». Задачи в терминале завершатся, проекты и состояние входа сохранятся."}
 }
 
 // Desktop never silently loads a different build's UI. Completing an update is
@@ -224,7 +224,7 @@ func desktopLaunch(profile string, gateway bool, options DesktopOptions, start f
 	if err == nil {
 		defer current.close()
 		if current.launch.DesktopGateway != gateway {
-			return DesktopResult{}, errors.New("此目录已被另一种 Cage 服务使用，请核对配置路径")
+			return DesktopResult{}, errors.New("Этот каталог уже используется другой службой Cage. Проверьте путь к конфигурации")
 		}
 		if options.CompleteUpdate {
 			if current.launch.DesktopGateway {
@@ -267,7 +267,7 @@ func desktopLaunch(profile string, gateway bool, options DesktopOptions, start f
 		if readErr == nil {
 			c.close()
 			if c.launch.DesktopGateway != gateway {
-				return DesktopResult{}, errors.New("打开期间控制服务身份发生变化，请重新选择")
+				return DesktopResult{}, errors.New("Во время запуска идентичность службы управления изменилась. Выберите заново")
 			}
 			if want.matches(c.launch.Controller) {
 				return DesktopResult{Status: "ready", URL: c.launch.URL, Controller: c.launch.Controller}, nil
@@ -276,7 +276,7 @@ func desktopLaunch(profile string, gateway bool, options DesktopOptions, start f
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	return DesktopResult{}, errors.New("工作台未能启动，请查看私有配置中的 control.log 后重试。")
+	return DesktopResult{}, errors.New("Рабочая область не запустилась. Проверьте control.log в приватной конфигурации и повторите.")
 }
 
 // PrepareUpdate is shared by the explicit migration button and the installer.
@@ -293,14 +293,14 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 		if lockErr == nil {
 			defer lock.Close()
 			if lockController(lock) != nil {
-				return DesktopResult{}, errors.New("后台暂时无法连接且尚未退出，请恢复连接后重试更新。")
+				return DesktopResult{}, errors.New("Фоновый сервис временно недоступен и ещё не завершился. Восстановите соединение и повторите обновление.")
 			}
 			defer unlockController(lock)
 		} else if !os.IsNotExist(lockErr) {
 			return DesktopResult{}, lockErr
 		}
 		if controllerHasVM(filepath.Dir(configPath)) {
-			return DesktopResult{}, errors.New("后台无法连接，但仍有环境进程。请恢复工作台连接并保存停止后再更新。")
+			return DesktopResult{}, errors.New("Фоновый сервис недоступен, но процессы среды ещё есть. Восстановите подключение к рабочей области, сохраните данные и остановите среду, затем повторите обновление.")
 		}
 		return DesktopResult{Status: "prepared"}, nil
 	}
@@ -337,7 +337,7 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	return DesktopResult{Status: "stop_required", Message: "请保存文件后确认停止环境并安装更新。终端任务会结束，项目和登录状态会保留。"}, nil
+	return DesktopResult{Status: "stop_required", Message: "Сохраните файлы и подтвердите остановку среды и установку обновления. Задачи в терминале завершатся, проекты и состояние входа сохранятся."}, nil
 }
 func (c *controllerClient) stopAndHandoff() error {
 	legacy := c.launch.Controller.Protocol == 0
@@ -349,7 +349,7 @@ func (c *controllerClient) stopAndHandoff() error {
 			return err
 		}
 	} else if c.launch.Controller.Protocol != controlProtocol {
-		return errors.New("当前后台协议不受此版本支持，已保留运行环境。请使用匹配的 Cage 版本停止环境。")
+		return errors.New("Текущий протокол фонового сервиса не поддерживается этой версией; работающая среда сохранена. Остановите среду подходящей версией Cage.")
 	}
 	u, _ := url.Parse(c.launch.URL)
 	status, err := c.call("POST", "/api/session", map[string]string{"token": u.Fragment}, nil)
@@ -357,7 +357,7 @@ func (c *controllerClient) stopAndHandoff() error {
 		return err
 	}
 	if status != http.StatusOK {
-		return errors.New("无法建立停止会话，请重试。")
+		return errors.New("Не удалось создать сессию остановки. Повторите.")
 	}
 	var clientContext ClientContext
 	contextStatus, contextErr := c.call("GET", "/api/client/context", nil, &clientContext)
@@ -368,12 +368,12 @@ func (c *controllerClient) stopAndHandoff() error {
 		}
 		status, err = c.call("POST", path, map[string]string{"connection_id": clientContext.ConnectionID}, nil)
 		if err != nil || status != http.StatusOK {
-			return errors.New("无法断开本地远程连接，未继续更新")
+			return errors.New("Не удалось отключить локальное удалённое соединение; обновление не продолжено")
 		}
 		if clientContext.ClientOnly {
 			status, err = c.call("POST", "/api/handoff", map[string]string{"token": c.record.Token}, nil)
 			if err != nil || status != http.StatusOK {
-				return errors.New("本地连接服务尚未退出，请稍后重试")
+				return errors.New("Служба локального подключения ещё не завершилась. Повторите позже")
 			}
 			return c.waitForExit()
 		}
@@ -392,7 +392,7 @@ func (c *controllerClient) stopAndHandoff() error {
 		return err
 	}
 	if status != http.StatusOK || requested.ID == "" {
-		return errors.New("后台未接受停止请求，已取消本次更新。")
+		return errors.New("Фоновый сервис не принял запрос на остановку; обновление отменено.")
 	}
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
@@ -405,16 +405,16 @@ func (c *controllerClient) stopAndHandoff() error {
 			return err
 		}
 		if status != http.StatusOK || state.VMRunning == nil || state.Job.ID != requested.ID {
-			return errors.New("停止状态发生变化，未终止后台；请确认现有任务后重试。")
+			return errors.New("Состояние остановки изменилось, фоновый сервис не завершён. Проверьте текущие задачи и повторите.")
 		}
 		if !state.Job.Running {
 			if state.Job.Error != "" || *state.VMRunning {
-				return errors.New("环境未能安全停止，未继续更新。请在原工作台查看停止结果。")
+				return errors.New("Среду не удалось безопасно остановить; обновление не продолжено. Проверьте результат остановки в исходной рабочей области.")
 			}
 			break
 		}
 		if time.Now().After(deadline) {
-			return errors.New("停止环境超时，后台保持运行，请稍后重试更新。")
+			return errors.New("Истекло время ожидания остановки среды, фоновый сервис продолжает работу. Повторите обновление позже.")
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -426,17 +426,17 @@ func (c *controllerClient) stopAndHandoff() error {
 		return err
 	}
 	if status != http.StatusOK {
-		return errors.New("无法确认终端已停止，未继续更新。")
+		return errors.New("Не удалось подтвердить остановку терминалов; обновление не продолжено.")
 	}
 	for _, terminal := range terminals {
 		if !terminal.Closed {
-			return errors.New("仍有终端运行，未继续更新。")
+			return errors.New("Терминалы всё ещё работают; обновление не продолжено.")
 		}
 	}
 	if legacy {
 		verified, err := identifyLegacyController(c.profile, c.record)
 		if err != nil || verified != owner {
-			return errors.New("旧后台进程身份已变化，未发送退出信号；请重试更新。")
+			return errors.New("Идентичность старого фонового процесса изменилась; сигнал завершения не отправлен. Повторите обновление.")
 		}
 		var final struct {
 			VMRunning *bool `json:"vm_running"`
@@ -444,10 +444,10 @@ func (c *controllerClient) stopAndHandoff() error {
 		}
 		status, err = c.call("GET", "/api/status", nil, &final)
 		if err != nil || status != http.StatusOK || final.VMRunning == nil || *final.VMRunning || final.Job.ID != requested.ID || final.Job.Running || final.Job.Error != "" || controllerHasVM(c.profile) {
-			return errors.New("停止后又有环境工作，未终止旧后台；请保存停止后重试。")
+			return errors.New("После остановки в среде снова началась работа; старый фоновый сервис не завершён. Сохраните данные, остановите среду и повторите.")
 		}
 		if err = terminateLegacy(owner.PID); err != nil {
-			return errors.New("旧后台未能退出，未替换应用。")
+			return errors.New("Старый фоновый сервис не завершился; приложение не заменено.")
 		}
 	} else {
 		status, err = c.call("POST", "/api/handoff", map[string]string{"token": c.record.Token}, nil)
@@ -455,7 +455,7 @@ func (c *controllerClient) stopAndHandoff() error {
 			return err
 		}
 		if status != http.StatusOK {
-			return errors.New("后台仍在执行工作，未继续更新。请保存并停止后重试。")
+			return errors.New("Фоновый сервис ещё выполняет работу; обновление не продолжено. Сохраните данные, остановите среду и повторите.")
 		}
 	}
 	return c.waitForExit()
@@ -463,7 +463,7 @@ func (c *controllerClient) stopAndHandoff() error {
 func (c *controllerClient) waitForExit() error {
 	f, err := openControllerLock(c.profile, os.O_RDWR)
 	if err != nil {
-		return errors.New("无法确认后台已退出，未继续更新。")
+		return errors.New("Не удалось подтвердить завершение фонового сервиса; обновление не продолжено.")
 	}
 	defer f.Close()
 	for i := 0; i < 100; i++ {
@@ -473,7 +473,7 @@ func (c *controllerClient) waitForExit() error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return errors.New("后台尚未退出，未强制结束进程。请稍后重试更新。")
+	return errors.New("Фоновый сервис ещё не завершился; принудительное завершение процесса не выполнялось. Повторите обновление позже.")
 }
 func startController(configPath string) error {
 	exe, err := os.Executable()

@@ -5,18 +5,18 @@ import "./about-settings.css";
 
 const repository = "https://github.com/Lee-xeo/Claude-Cage";
 const sourceMessages = {
-  current: "已与主分支同步",
-  available: "主分支有新提交",
-  ahead: "当前构建的提交领先于主分支",
-  diverged: "当前构建与主分支存在分叉，请核对差异",
-  unknown: "此构建缺少提交信息，无法核对是否最新",
+  current: "Синхронизировано с основной веткой",
+  available: "В основной ветке есть новые коммиты",
+  ahead: "Коммит текущей сборки опережает основную ветку",
+  diverged: "Текущая сборка разошлась с основной веткой — проверьте различия",
+  unknown: "В сборке нет данных о коммите, проверить актуальность нельзя",
 };
 const releaseMessages = {
-  current: "已是最新发行版（含预发行）",
-  available: "发现新发行版",
-  ahead: "当前版本高于最新发行版",
-  unknown: "当前版本无法比较，请核对发行说明",
-  missing: "暂无可比较的公开发行版",
+  current: "Установлена последняя версия (включая предварительные)",
+  available: "Доступна новая версия",
+  ahead: "Текущая версия новее последней",
+  unknown: "Версии не удалось сравнить — проверьте примечания к выпуску",
+  missing: "Нет публичных версий для сравнения",
 };
 
 function RepositoryLink({ kind, onError, children }) {
@@ -32,15 +32,15 @@ function RepositoryLink({ kind, onError, children }) {
 function CheckResult({ label, item, source, onError }) {
   return <section className="about-result" aria-label={label}>
     <h4>{label}</h4>
-    {!item ? <p className="footnote">尚未检查</p> : <>
+    {!item ? <p className="footnote">Ещё не проверено</p> : <>
       <p className={item.error ? "error-message" : "about-result-status"}>
         {item.error || (source ? sourceMessages : releaseMessages)[item.status]}
       </p>
-      {item.retryAt && <p className="footnote">可于 {new Date(item.retryAt).toLocaleString()} 后重试</p>}
-      {source && item.commit && <p className="about-result-detail">主分支提交 <code title={item.commit}>{item.commit.slice(0, 12)}</code></p>}
-      {source && item.status === "available" && item.aheadBy > 0 && <p className="footnote">主分支新增 {item.aheadBy} 个提交</p>}
-      {!source && item.version && <p className="about-result-detail">{item.version} · {item.prerelease ? "预发行版" : "正式版"}</p>}
-      <RepositoryLink kind={source ? "source" : "releases"} onError={onError}>{source ? "查看源码提交" : "查看发行说明与下载"}</RepositoryLink>
+      {item.retryAt && <p className="footnote">Повторить можно после {new Date(item.retryAt).toLocaleString()}</p>}
+      {source && item.commit && <p className="about-result-detail">Коммит основной ветки <code title={item.commit}>{item.commit.slice(0, 12)}</code></p>}
+      {source && item.status === "available" && item.aheadBy > 0 && <p className="footnote">В основной ветке {item.aheadBy} новых коммитов</p>}
+      {!source && item.version && <p className="about-result-detail">{item.version} · {item.prerelease ? "предварительная версия" : "стабильная версия"}</p>}
+      <RepositoryLink kind={source ? "source" : "releases"} onError={onError}>{source ? "Смотреть коммиты" : "Примечания к выпуску и загрузка"}</RepositoryLink>
     </>}
   </section>;
 }
@@ -81,26 +81,26 @@ export function AboutSettings() {
       if (!controller.signal.aborted) setBusy(false);
     }
   };
-  return <section className="about-settings" aria-label="关于 Cage">
-    <div className="section-title"><h3>关于</h3><p>Cage 的版本与更新信息</p></div>
+  return <section className="about-settings" aria-label="О Cage">
+    <div className="section-title"><h3>О программе</h3><p>Версия Cage и сведения об обновлениях</p></div>
     <dl className="about-build">
-      <div><dt>软件版本</dt><dd>{loading ? "正在读取…" : build?.version || "未知"}</dd></div>
-      <div><dt>构建提交</dt><dd>{build?.commit ? <code title={build.commit}>{build.commit.slice(0, 12)}</code> : loading ? "正在读取…" : "未记录"}</dd></div>
+      <div><dt>Версия ПО</dt><dd>{loading ? "Чтение…" : build?.version || "Неизвестно"}</dd></div>
+      <div><dt>Коммит сборки</dt><dd>{build?.commit ? <code title={build.commit}>{build.commit.slice(0, 12)}</code> : loading ? "Чтение…" : "Не записан"}</dd></div>
     </dl>
-    {build?.modified && <p className="footnote">此构建包含未提交的修改，提交核对仅反映已记录的提交。</p>}
+    {build?.modified && <p className="footnote">Сборка содержит незакоммиченные изменения; сверка коммитов отражает только записанный коммит.</p>}
     <div className="about-check-actions">
       <button className="secondary-button" onClick={check} disabled={busy || coolingDown}>
         {busy ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />}
-        {busy ? "正在检查…" : coolingDown ? "等待重试" : "检测更新"}
+        {busy ? "Проверка…" : coolingDown ? "Ожидание повтора" : "Проверить обновления"}
       </button>
-      {result?.checkedAt && <span className="footnote">检查时间：{new Date(result.checkedAt).toLocaleString()}</span>}
+      {result?.checkedAt && <span className="footnote">Время проверки: {new Date(result.checkedAt).toLocaleString()}</span>}
     </div>
-    <p className="footnote">优先通过主机网络与系统代理检查主分支提交和最新发行版，包含预发行版；主机连接失败时尝试 Cage 所选代理。检查后可前往发布页下载。</p>
-    {busy && <p role="status">正在核对源码提交与发行版…</p>}
+    <p className="footnote">Коммит основной ветки и последняя версия (включая предварительные) проверяются через сеть хоста и системный прокси; при сбое подключения используется прокси, выбранный в Cage. После проверки можно скачать версию со страницы выпусков.</p>
+    {busy && <p role="status">Сверка коммитов и выпусков…</p>}
     {error && <p className="error-message" role="alert">{error}</p>}
     <div className="about-results" aria-live="polite" aria-busy={busy}>
-      <CheckResult label="源码更新" item={result?.source} source onError={setError} />
-      <CheckResult label="发行版更新（含预发行）" item={result?.release} onError={setError} />
+      <CheckResult label="Обновление исходников" item={result?.source} source onError={setError} />
+      <CheckResult label="Обновление версии (включая предварительные)" item={result?.release} onError={setError} />
     </div>
   </section>;
 }

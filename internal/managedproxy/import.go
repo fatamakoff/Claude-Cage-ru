@@ -33,21 +33,21 @@ func Parse(data []byte, sourceID string) ([]Node, error) {
 // Node-only import keeps remote files from changing listeners, routes, or file paths.
 func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 	if len(data) == 0 || len(data) > MaxImport {
-		return nil, nil, errors.New("配置为空或超过 8 MiB")
+		return nil, nil, errors.New("Конфигурация пуста или превышает 8 MiB")
 	}
 	var input struct {
 		Proxies []map[string]any `yaml:"proxies"`
 		Payload []map[string]any `yaml:"payload"`
 	}
 	if yaml.Unmarshal(data, &input) != nil {
-		return nil, nil, errors.New("无法读取 YAML，请导入 Clash/Mihomo 节点订阅或配置；暂不支持 Base64 列表或分享链接")
+		return nil, nil, errors.New("Не удалось прочитать YAML. Импортируйте подписку или конфигурацию узлов Clash/Mihomo; списки Base64 и ссылки общего доступа пока не поддерживаются")
 	}
 	proxies := input.Proxies
 	if len(proxies) == 0 {
 		proxies = input.Payload
 	}
 	if len(proxies) == 0 || len(proxies) > 3000 {
-		return nil, nil, errors.New("配置需要包含 1–3000 个 proxies 节点；仅含远程 provider 的配置请改为导入节点订阅链接")
+		return nil, nil, errors.New("Конфигурация должна содержать от 1 до 3000 узлов proxies; если в ней есть только удалённые provider, импортируйте ссылку на подписку с узлами")
 	}
 	types := map[string]bool{}
 	for _, k := range strings.Fields("http socks5 ss ssr vmess vless trojan hysteria hysteria2 tuic anytls mieru ssh") {
@@ -81,20 +81,20 @@ func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 		case keyErrors[i] != nil:
 			issue.Reason = keyErrors[i].Error()
 		case strings.TrimSpace(name) == "" || len(name) > 240:
-			issue.Reason = "节点名称为空或过长"
+			issue.Reason = "Имя узла пустое или слишком длинное"
 		case counts[name] > 1:
-			issue.Reason = "节点名称重复，无法确定代理链引用"
+			issue.Reason = "Имена узлов повторяются, ссылку в цепочке прокси определить нельзя"
 		case !types[typ]:
-			issue.Reason = "节点协议暂不支持"
+			issue.Reason = "Протокол узла пока не поддерживается"
 		case server == "" || len(server) > 253:
-			issue.Reason = "节点服务器缺失或过长"
+			issue.Reason = "Сервер узла отсутствует или слишком длинный"
 		default:
 			if err := normalizeWebSocket(p); err != nil {
 				issue.Reason = err.Error()
 			} else if typ == "ssh" && sshPrivateKeyPath(p) {
-				issue.Reason = "SSH 节点的 private-key 必须直接填写私钥内容，不能引用本机文件"
+				issue.Reason = "В узле SSH параметр private-key должен содержать сам ключ, а не ссылку на локальный файл"
 			} else if unsafeOption(withoutSSHPrivateKey(p)) {
-				issue.Reason = "节点不能引用本机文件、网络接口或额外路由"
+				issue.Reason = "Узел не может ссылаться на локальные файлы, сетевые интерфейсы или дополнительные маршруты"
 			} else if typ == "hysteria2" {
 				if err := normalizeHysteria2(p); err != nil {
 					issue.Reason = err.Error()
@@ -117,7 +117,7 @@ func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 		if v, exists := p["dialer-proxy"]; exists {
 			target, ok := v.(string)
 			if !ok || names[target] == "" {
-				issues[indexes[n.ID]].Reason = "代理链必须引用同一来源中成功导入的具体节点，不能引用 DIRECT 或选择分组"
+				issues[indexes[n.ID]].Reason = "Цепочка прокси должна ссылаться на конкретный успешно импортированный узел из того же источника, а не на DIRECT или группу выбора"
 			} else {
 				p["dialer-proxy"] = names[target]
 			}
@@ -137,13 +137,13 @@ func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 			return true
 		}
 		if state[id] == 1 {
-			issues[i].Reason = "代理链存在循环"
+			issues[i].Reason = "В цепочке прокси есть цикл"
 			return false
 		}
 		state[id] = 1
 		if target, _ := byID[id].Config["dialer-proxy"].(string); target != "" && !usable(target) {
 			if issues[i].Reason == "" {
-				issues[i].Reason = "代理链依赖的中转节点不可用或存在循环"
+				issues[i].Reason = "Транзитный узел, от которого зависит цепочка прокси, недоступен или образует цикл"
 			}
 			return false
 		}
@@ -165,9 +165,9 @@ func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 	if len(out) == 0 {
 		var details []string
 		for _, issue := range skipped[:min(3, len(skipped))] {
-			details = append(details, fmt.Sprintf("第 %d 个节点 %q：%s", issue.Index, issue.Name, issue.Reason))
+			details = append(details, fmt.Sprintf("Узел № %d %q: %s", issue.Index, issue.Name, issue.Reason))
 		}
-		return nil, skipped, fmt.Errorf("没有可导入的节点，已跳过 %d 个；%s", len(skipped), strings.Join(details, "；"))
+		return nil, skipped, fmt.Errorf("Нет узлов для импорта, пропущено %d; %s", len(skipped), strings.Join(details, "; "))
 	}
 	return out, skipped, nil
 }
@@ -185,7 +185,7 @@ func normalizeImportKeys(p map[string]any, keys ...string) error {
 				continue
 			}
 			if found != "" {
-				return fmt.Errorf("节点字段 %s 存在重复写法，请仅保留一种", canonical)
+				return fmt.Errorf("Поле узла %s записано несколько раз, оставьте только один вариант", canonical)
 			}
 			found = key
 		}
@@ -242,12 +242,12 @@ func normalizeHysteria2(p map[string]any) error {
 		}
 		value, err := alias.normalize(raw)
 		if err != nil {
-			return fmt.Errorf("Hysteria2 字段 %s 无效，未忽略该字段", alias.from)
+			return fmt.Errorf("Поле Hysteria2 %s недопустимо, поле не было проигнорировано", alias.from)
 		}
 		if current, exists := p[alias.to]; exists {
 			canonical, err := alias.normalize(current)
 			if err != nil || canonical != value {
-				return fmt.Errorf("Hysteria2 字段 %s 与 %s 冲突", alias.from, alias.to)
+				return fmt.Errorf("Поле Hysteria2 %s конфликтует с %s", alias.from, alias.to)
 			}
 		}
 		p[alias.to] = value
@@ -272,16 +272,16 @@ func normalizeWebSocket(p map[string]any) error {
 		return err
 	}
 	if p["type"] != "vmess" && p["type"] != "vless" && p["type"] != "trojan" {
-		return errors.New("旧 WebSocket 字段仅适用于 VMess、VLESS 或 Trojan 节点")
+		return errors.New("Устаревшие поля WebSocket применимы только к узлам VMess, VLESS или Trojan")
 	}
 	if p["network"] != "ws" {
-		return errors.New("旧 WebSocket 字段需要显式设置 network: ws，请核对节点传输方式")
+		return errors.New("Устаревшие поля WebSocket требуют явного указания network: ws, проверьте транспорт узла")
 	}
 	opts := map[string]any{}
 	if raw, exists := p["ws-opts"]; exists {
 		current, ok := raw.(map[string]any)
 		if !ok {
-			return errors.New("WebSocket 字段 ws-opts 无效，未忽略旧字段")
+			return errors.New("Поле WebSocket ws-opts недопустимо, старые поля не проигнорированы")
 		}
 		opts = maps.Clone(current)
 	}
@@ -291,10 +291,10 @@ func normalizeWebSocket(p map[string]any) error {
 	if raw, exists := p["ws-path"]; exists {
 		path, ok := raw.(string)
 		if !ok {
-			return errors.New("WebSocket 字段 ws-path 无效，未忽略该字段")
+			return errors.New("Поле WebSocket ws-path недопустимо, поле не было проигнорировано")
 		}
 		if current, exists := opts["path"]; exists && current != path {
-			return errors.New("WebSocket 字段 ws-path 与 ws-opts.path 冲突")
+			return errors.New("Поле WebSocket ws-path конфликтует с ws-opts.path")
 		}
 		opts["path"] = path
 		delete(p, "ws-path")
@@ -311,7 +311,7 @@ func normalizeWebSocket(p map[string]any) error {
 			}
 			for key, value := range modern {
 				if previous, exists := headers[key]; exists && previous != value {
-					return errors.New("WebSocket 字段 ws-headers 与 ws-opts.headers 冲突")
+					return errors.New("Поле WebSocket ws-headers конфликтует с ws-opts.headers")
 				}
 				headers[key] = value
 			}
@@ -326,17 +326,17 @@ func normalizeWebSocket(p map[string]any) error {
 func webSocketHeaders(raw any) (map[string]any, error) {
 	input, ok := raw.(map[string]any)
 	if !ok {
-		return nil, errors.New("WebSocket 请求头必须为字符串映射，未忽略该字段")
+		return nil, errors.New("Заголовки запроса WebSocket должны быть строковым отображением; поле не игнорируется")
 	}
 	headers := make(map[string]any, len(input))
 	for key, rawValue := range input {
 		value, ok := rawValue.(string)
 		if !ok || !httpguts.ValidHeaderFieldName(key) || !httpguts.ValidHeaderFieldValue(value) {
-			return nil, errors.New("WebSocket 请求头无效，未忽略该字段")
+			return nil, errors.New("Недопустимые заголовки запроса WebSocket; поле не игнорируется")
 		}
 		key = http.CanonicalHeaderKey(key)
 		if previous, exists := headers[key]; exists && previous != value {
-			return nil, errors.New("WebSocket 请求头存在大小写不同的冲突写法")
+			return nil, errors.New("Заголовки запроса WebSocket содержат конфликтующие варианты с разным регистром")
 		}
 		headers[key] = value
 	}

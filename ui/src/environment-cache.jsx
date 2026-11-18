@@ -38,11 +38,11 @@ export function EnvironmentCache({ status, onConfirm }) {
       const cleaning = action === "clean";
       const choices = inventory.items.filter(item => selected.includes(item.id));
       const confirmed = await onConfirm({
-        title: cleaning ? "清理所选缓存？" : "恢复这批缓存？",
+        title: cleaning ? "Очистить выбранный кэш?" : "Восстановить этот набор кэша?",
         body: cleaning
-          ? `将移动 ${choices.length} 项缓存（${size(choices.reduce((total, item) => total + item.bytes, 0))}）到恢复批次。\n${choices.map(item => item.title).join("、")}。\n账户、登录、会话、项目和持久磁盘保留。恢复副本仍占用空间，客户端下次使用时可能重新生成缓存。`
-          : "只恢复这批缓存。正在使用的缓存和原位置新生成的数据都会保留，恢复不会覆盖它们。",
-        confirm: cleaning ? "清理缓存" : "恢复缓存",
+          ? `Перемещение в набор восстановления: ${choices.length} элементов кэша (${size(choices.reduce((total, item) => total + item.bytes, 0))}).\n${choices.map(item => item.title).join(", ")}.\nАккаунты, входы, сессии, проекты и постоянные диски сохраняются. Восстановленная копия всё ещё занимает место; при следующем использовании клиент может создать кэш заново.`
+          : "Восстанавливается только этот набор кэша. Используемый кэш и данные, созданные заново в исходном месте, сохраняются — восстановление их не перезаписывает.",
+        confirm: cleaning ? "Очистить кэш" : "Восстановить кэш",
       });
       if (!confirmed) return;
       const outcome = await api(`/environment/cache/${action}`, cleaning
@@ -58,18 +58,18 @@ export function EnvironmentCache({ status, onConfirm }) {
     } finally { setWorking(false); }
   }
 
-  return <section className="environment-cache" aria-label="环境清理" aria-busy={working}>
-    <h4>环境清理</h4>
-    <p className="field-help">手动盘点当前环境的缓存和受保护资料。清理仅移动允许清单中的缓存，保留登录、会话、项目、设置和持久磁盘。</p>
+  return <section className="environment-cache" aria-label="Очистка среды" aria-busy={working}>
+    <h4>Очистка среды</h4>
+    <p className="field-help">Ручная инвентаризация кэша и защищённых данных текущей среды. Очистка перемещает только кэш из разрешённого списка, сохраняя входы, сессии, проекты, настройки и постоянные диски.</p>
     <div className="environment-version-actions">
-      <button disabled={disabled} onClick={refresh}>{working ? "正在处理…" : inventory ? "重新盘点" : "只读盘点"}</button>
-      {inventory && <button disabled={disabled || !selected.length} onClick={() => mutate("clean")}>清理所选缓存{selected.length ? `（${selected.length}）` : ""}</button>}
+      <button disabled={disabled} onClick={refresh}>{working ? "Обработка…" : inventory ? "Обновить инвентаризацию" : "Инвентаризация без изменений"}</button>
+      {inventory && <button disabled={disabled || !selected.length} onClick={() => mutate("clean")}>Очистить выбранный кэш{selected.length ? ` (${selected.length})` : ""}</button>}
     </div>
-    {!status.ready && <p className="field-help">请先启动当前环境。此操作不会扫描本机其他应用的数据。</p>}
+    {!status.ready && <p className="field-help">Сначала запустите текущую среду. Операция не сканирует данные других приложений на этом компьютере.</p>}
     {error && <p role="alert" className="error-message">{error}</p>}
     {result && <div role="status" className="cache-result">
-      <strong>{result.status === "partial" ? "部分项目未完成，请查看原因" : result.action === "clean" ? "缓存清理完成，恢复副本已保留" : "缓存恢复完成"}</strong>
-      {result.outcomes.map(item => <p key={item.id}>{result.titles[item.id] || item.id}：{item.reason}</p>)}
+      <strong>{result.status === "partial" ? "Часть элементов не завершена, см. причину" : result.action === "clean" ? "Кэш очищен, копии для восстановления сохранены" : "Кэш восстановлен"}</strong>
+      {result.outcomes.map(item => <p key={item.id}>{result.titles[item.id] || item.id}: {item.reason}</p>)}
     </div>}
     {inventory && <>
       <p className="field-help">{inventory.notice}</p>
@@ -78,26 +78,26 @@ export function EnvironmentCache({ status, onConfirm }) {
           <input type="checkbox" aria-label={item.title} checked={selected.includes(item.id)} disabled={disabled || item.state !== "ready"}
             onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} />
           <span><strong>{item.title}</strong><small>{item.location}</small><small>{item.reason}</small></span>
-          <span className="cache-size">{size(item.bytes)}<small>{item.files} 个文件</small></span>
+          <span className="cache-size">{size(item.bytes)}<small>файлов: {item.files}</small></span>
         </label>)}
       </div>
-      {!inventory.items.some(item => item.state !== "absent") && <p>未发现允许清单中的缓存。</p>}
-      <p className="field-help">运行中的客户端、无法确认归属或含链接的目录会保留。清理前会再次核对，预览有效期为 10 分钟。</p>
-      <div className="cache-protected" aria-label="受保护资料">
-        <strong>以下资料保留</strong>
-        {inventory.protected.map(item => <p key={item.title}>{item.title}：发现 {item.present} 处{item.unknown ? `，${item.unknown} 处无法确认` : ""}</p>)}
-        <p>系统凭据库、项目内容和持久磁盘不参与扫描或清理。存在状态不能判断是否已登录，以账户页和客户端实际显示为准。</p>
+      {!inventory.items.some(item => item.state !== "absent") && <p>Кэш из разрешённого списка не найден.</p>}
+      <p className="field-help">Работающие клиенты, каталоги с неопределённой принадлежностью и каталоги со ссылками сохраняются. Перед очисткой выполняется повторная сверка; предпросмотр действителен 10 минут.</p>
+      <div className="cache-protected" aria-label="Защищённые данные">
+        <strong>Эти данные сохраняются</strong>
+        {inventory.protected.map(item => <p key={item.title}>{item.title}: найдено {item.present}{item.unknown ? `, не определено: ${item.unknown}` : ""}</p>)}
+        <p>Системное хранилище учётных данных, содержимое проектов и постоянные диски не сканируются и не очищаются. Наличие данных не говорит о входе — ориентируйтесь на страницу аккаунтов и то, что показывает клиент.</p>
       </div>
-      <div className="cache-recovery" aria-label="缓存恢复批次">
-        <h4>缓存恢复批次</h4>
-        <p className="field-help">副本仍占用磁盘空间，不会自动删除。恢复不覆盖新生成的数据。</p>
-        {!inventory.batches.length && <p className="field-help">暂无可恢复批次。</p>}
+      <div className="cache-recovery" aria-label="Наборы восстановления кэша">
+        <h4>Наборы восстановления кэша</h4>
+        <p className="field-help">Копии всё ещё занимают место на диске и не удаляются автоматически. Восстановление не перезаписывает новые данные.</p>
+        {!inventory.batches.length && <p className="field-help">Нет наборов для восстановления.</p>}
         {inventory.batches.map(batch => <div className="setting-summary-row" key={batch.id}>
-          <span>{new Date(batch.created_at * 1000).toLocaleString()} · {batch.count} 项缓存</span>
-          <button disabled={disabled} onClick={() => mutate("restore", batch.id)}>恢复此批缓存</button>
+          <span>{new Date(batch.created_at * 1000).toLocaleString()} · элементов кэша: {batch.count}</span>
+          <button disabled={disabled} onClick={() => mutate("restore", batch.id)}>Восстановить этот набор</button>
         </div>)}
       </div>
     </>}
-    <p className="field-help">盘点、保护资料与可恢复清理的流程参考了 claude-post-ban-cleanup 和 Claude-Guardian，由 Cage 独立实现。</p>
+    <p className="field-help">Процессы инвентаризации, защиты данных и восстановимой очистки основаны на claude-post-ban-cleanup и Claude-Guardian и реализованы в Cage независимо.</p>
   </section>;
 }

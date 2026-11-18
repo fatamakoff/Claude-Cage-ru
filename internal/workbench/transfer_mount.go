@@ -11,7 +11,7 @@ func (s *Server) requireCurrentLinuxTransferMount() error {
 	if shares, _ := s.inspectVMLayout(); shares {
 		return nil
 	}
-	failure := &projectShareError{Recovery: "environment-restart", Message: "下载目录与运行中的文件共享不一致。请先保存工作，停止环境后重新启动；项目文件、会话和登录状态会保留。"}
+	failure := &projectShareError{Recovery: "environment-restart", Message: "Каталог загрузок не соответствует активному общему доступу к файлам. Сохраните работу, остановите среду и запустите её заново; файлы проектов, сессии и состояние входа сохранятся."}
 	s.mu.Lock()
 	s.ready = false
 	s.mu.Unlock()

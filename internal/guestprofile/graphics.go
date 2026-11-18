@@ -11,41 +11,41 @@ var homePattern = regexp.MustCompile(`^/home/[A-Za-z][A-Za-z0-9_.-]{0,62}$`)
 func validateHardwareOptions(o Options) error {
 	for _, home := range []string{o.WorkHome, o.BrowserHome} {
 		if home != "" && !homePattern.MatchString(home) {
-			return errors.New("主目录须为 /home/ 下独立的单层目录，仅含字母、数字、点、连字符或下划线")
+			return errors.New("Домашний каталог должен быть отдельным одноуровневым каталогом в /home/ и содержать только буквы, цифры, точки, дефисы и подчёркивания")
 		}
 		if home == "/home/cage" || home == "/home/cage-browser" {
-			return errors.New("主目录不能使用基础镜像的保留账户目录")
+			return errors.New("Домашний каталог не может использовать каталог зарезервированного аккаунта базового образа")
 		}
 	}
 	if o.WorkHome != "" && o.WorkHome == o.BrowserHome {
-		return errors.New("两个账户不能共用主目录")
+		return errors.New("Два аккаунта не могут использовать один домашний каталог")
 	}
 	switch o.GraphicsBackend {
 	case "", "auto", "metal", "d3d11", "vulkan", "opengl", "software":
 	default:
-		return errors.New("图形渲染后端无效")
+		return errors.New("Недопустимый бэкенд графического рендеринга")
 	}
 	switch o.GPUBackend {
 	case "", "default", "virgl":
 	default:
-		return errors.New("虚拟 GPU 后端无效")
+		return errors.New("Недопустимый бэкенд виртуального GPU")
 	}
 	if o.WebGL == "disabled" && o.GraphicsBackend != "" && o.GraphicsBackend != "auto" {
-		return errors.New("关闭 WebGL 时不能要求指定 3D 渲染后端")
+		return errors.New("При отключённом WebGL нельзя требовать определённый бэкенд 3D-рендеринга")
 	}
 	if o.GPUBackend == "virgl" && o.GraphicsBackend == "vulkan" {
-		return errors.New("当前 VirGL 路径仅提供 OpenGL；Vulkan 需要独立的 Venus/Gfxstream 支持")
+		return errors.New("Текущий путь VirGL даёт только OpenGL; для Vulkan требуется отдельная поддержка Venus/Gfxstream")
 	}
 	if o.AudioModel != "" {
 		m, ok := findAudioModel(o.AudioModel)
 		if !ok {
-			return errors.New("音频型号不存在")
+			return errors.New("Модель аудиоустройства не существует")
 		}
 		if o.AudioDescription != "" && o.AudioDescription != m.Label {
-			return errors.New("音频描述须与已选型号一致")
+			return errors.New("Описание аудио должно соответствовать выбранной модели")
 		}
 		if o.AudioName != "" && !strings.HasPrefix(o.AudioName, "alsa_output.usb-"+m.Stem+"_") {
-			return errors.New("音频设备名与已选型号不一致")
+			return errors.New("Имя аудиоустройства не совпадает с выбранной моделью")
 		}
 	}
 	return nil
@@ -73,16 +73,16 @@ func (p *Profile) BrowserHomePath() string {
 // Platform refers to the guest OS, not the host. No renderer names are spoofed.
 func (o Options) ValidatePlatform(platform string) error {
 	if o.GraphicsBackend == "metal" && platform != "darwin" {
-		return errors.New("Metal 后端仅支持 macOS 客机")
+		return errors.New("Бэкенд Metal поддерживается только гостевой системой macOS")
 	}
 	if o.GraphicsBackend == "d3d11" && platform != "windows" {
-		return errors.New("D3D11 后端仅支持 Windows 客机")
+		return errors.New("Бэкенд D3D11 поддерживается только гостевой системой Windows")
 	}
 	if o.GraphicsBackend == "vulkan" && platform != "linux" {
-		return errors.New("Vulkan 后端当前仅支持 Linux 客机")
+		return errors.New("Бэкенд Vulkan сейчас поддерживается только гостевой системой Linux")
 	}
 	if o.GPUBackend == "virgl" && platform != "linux" {
-		return errors.New("VirGL 后端当前仅支持 Linux QEMU 客机")
+		return errors.New("Бэкенд VirGL сейчас поддерживается только гостевой системой Linux на QEMU")
 	}
 	return nil
 }

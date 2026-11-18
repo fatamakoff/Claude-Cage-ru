@@ -21,16 +21,16 @@ import (
 func (s *loginSession) maintenanceCommand(ctx context.Context, operation string) (*exec.Cmd, string, error) {
 	open := operation == "--maintenance-open"
 	if !guestos.ValidMacMaintenancePurpose(s.maintenance) {
-		return nil, "", errors.New("维护用途无效")
+		return nil, "", errors.New("Недопустимое назначение обслуживания")
 	}
 	bound, err := guestos.LoadMacOSProfile(s.profile)
 	if err != nil || bound == nil || bound.SetupID != "" {
-		return nil, "", errors.New("请先完成虚拟 Mac 的首次设置")
+		return nil, "", errors.New("Сначала завершите первичную настройку виртуального Mac")
 	}
 	if open {
 		s.maintenanceMachineID = bound.MachineID
 	} else if s.maintenanceMachineID != bound.MachineID {
-		return nil, "", errors.New("虚拟 Mac 身份已变化，请重新打开维护画面")
+		return nil, "", errors.New("Идентификатор виртуального Mac изменился, откройте окно обслуживания заново")
 	}
 	user, err := guestos.MacOSProvisionUser(s.profile)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *loginSession) maintenanceCommand(ctx context.Context, operation string)
 	if open {
 		s.maintenanceAdministrator = user
 	} else if s.maintenanceAdministrator != user {
-		return nil, "", errors.New("客机安装身份已变化，请重新打开维护画面")
+		return nil, "", errors.New("Учётная запись установки гостевой системы изменилась, откройте окно обслуживания заново")
 	}
 	cmd, err := guestGUIProbeCommand(ctx, s.profile, user, bound.User, operation, s.maintenance)
 	return cmd, bound.User, err
@@ -60,7 +60,7 @@ func (s *loginSession) maintenanceProbe(open bool) (maintenanceWindow, error) {
 	pipe, err := cmd.StdoutPipe()
 	if err != nil || cmd.Start() != nil {
 		result.Error = "component_update_required"
-		return result, errors.New("客机维护组件尚未连接，请更新环境组件后重试")
+		return result, errors.New("Компонент обслуживания гостевой системы не подключён, обновите компоненты среды и повторите")
 	}
 	data, readErr := io.ReadAll(io.LimitReader(pipe, 8193))
 	if readErr != nil || len(data) > 8192 {
@@ -70,20 +70,20 @@ func (s *loginSession) maintenanceProbe(open bool) (maintenanceWindow, error) {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) && exit.ExitCode() == 73 {
 			result.Error = "requires_gui_login"
-			return result, errors.New("请先登录并解锁虚拟 Mac 的客机账户")
+			return result, errors.New("Сначала войдите и разблокируйте аккаунт гостевой системы виртуального Mac")
 		}
 		result.Error = "component_update_required"
-		return result, errors.New("客机维护组件需要更新，请在环境设置中更新组件")
+		return result, errors.New("Компонент обслуживания гостевой системы требует обновления — обновите компоненты в настройках среды")
 	}
 	if readErr != nil || len(data) > 8192 || json.Unmarshal(data, &result) != nil {
 		result.Error = "component_update_required"
-		return result, errors.New("客机维护组件需要更新，请在环境设置中更新组件")
+		return result, errors.New("Компонент обслуживания гостевой системы требует обновления — обновите компоненты в настройках среды")
 	}
 	if result.Error != "" {
 		return result, errors.New(result.probeMessage())
 	}
 	if !open && !result.valid(user) {
-		return result, errors.New("客机授权窗口身份无法确认，请重新打开维护画面")
+		return result, errors.New("Не удалось подтвердить подлинность окна авторизации гостевой системы, откройте окно обслуживания заново")
 	}
 	return result, nil
 }
@@ -101,7 +101,7 @@ func maintenanceFailure(surface maintenanceWindow, err error, closed bool) reply
 func (s *loginSession) handleMaintenance(in request) (result reply) {
 	defer func() { result.MaintenanceVersion = 1 }()
 	if in.Setup || !guestos.ValidMacMaintenancePurpose(in.Maintenance) || len(in.Geometry) > 64 {
-		return reply{Closed: true, Error: "维护用途无效"}
+		return reply{Closed: true, Error: "Недопустимое назначение обслуживания"}
 	}
 	if in.Action == "open" {
 		s.close()
@@ -139,7 +139,7 @@ func (s *loginSession) handleMaintenance(in request) (result reply) {
 	if err != nil || s.screenID != "maintenance-"+surface.Session {
 		s.close()
 		if err == nil {
-			err = errors.New("客机登录会话已变化，请重新打开维护画面")
+			err = errors.New("Сессия входа гостевой системы изменилась, откройте окно обслуживания заново")
 		}
 		return maintenanceFailure(surface, err, true)
 	}
@@ -147,7 +147,7 @@ func (s *loginSession) handleMaintenance(in request) (result reply) {
 		region := surface.region()
 		frame, err := s.surface.Image(region[:])
 		if err != nil {
-			return reply{Error: "正在等待系统设置窗口画面"}
+			return reply{Error: "Ожидание изображения окна системных настроек"}
 		}
 		after, err := s.maintenanceProbe(false)
 		if err != nil {
@@ -155,13 +155,13 @@ func (s *loginSession) handleMaintenance(in request) (result reply) {
 			return maintenanceFailure(after, err, true)
 		}
 		if after != surface {
-			return reply{Error: "授权窗口已变化，正在刷新画面"}
+			return reply{Error: "Окно авторизации изменилось, изображение обновляется"}
 		}
 		s.maintenanceFrame = surface.geometry()
 		return reply{Image: frame, MIME: "image/jpeg", Geometry: s.maintenanceFrame, Region: region[:]}
 	}
 	if in.Geometry == "" || in.Geometry != s.maintenanceFrame || in.Geometry != surface.geometry() {
-		return reply{Error: "授权窗口已变化，请等待新画面后重试"}
+		return reply{Error: "Окно авторизации изменилось, дождитесь нового изображения и повторите"}
 	}
 	switch in.Action {
 	case "fill-password":
@@ -171,12 +171,12 @@ func (s *loginSession) handleMaintenance(in request) (result reply) {
 	case "select-all":
 		s.passwordSelection = passwordSelection{}
 		if !s.surface.SelectAll() {
-			return reply{Error: "授权窗口尚未准备好"}
+			return reply{Error: "Окно авторизации ещё не готово"}
 		}
 	case "click":
 		s.passwordSelection = passwordSelection{}
 		if !surface.contains(in.X, in.Y) || !s.surface.Click(in.X, in.Y) {
-			return reply{Error: "点击位置超出当前授权窗口"}
+			return reply{Error: "Точка нажатия вне текущего окна авторизации"}
 		}
 		if probe, err := s.openMaintenancePasswordProbe(); err == nil {
 			target, err := probe.target()
@@ -189,16 +189,16 @@ func (s *loginSession) handleMaintenance(in request) (result reply) {
 		s.passwordSelection = passwordSelection{}
 		navigation := in.Code >= 123 && in.Code <= 126 || in.Code == 116 || in.Code == 121
 		if in.Code < 0 || (in.Code > 53 && !navigation) || !s.surface.Key(in.Code, in.Shift) {
-			return reply{Error: "此按键不能用于授权窗口"}
+			return reply{Error: "Эта клавиша недоступна для окна авторизации"}
 		}
 	case "scroll":
 		s.passwordSelection = passwordSelection{}
 		if !surface.contains(in.X, in.Y) || in.DeltaX < -512 || in.DeltaX > 512 || in.DeltaY < -512 || in.DeltaY > 512 ||
 			!s.surface.Scroll(in.X, in.Y, in.DeltaX, in.DeltaY) {
-			return reply{Error: "滚动位置超出当前授权窗口"}
+			return reply{Error: "Прокрутка выходит за пределы текущего окна авторизации"}
 		}
 	default:
-		return reply{Error: "维护操作无效"}
+		return reply{Error: "Недопустимая операция обслуживания"}
 	}
 	return reply{}
 }
@@ -246,7 +246,7 @@ func (s *loginSession) fillMaintenancePassword(window maintenanceWindow) error {
 	}
 	selection, permitted := selected.consumeMaintenance(window, target, probe.user, time.Now())
 	if !permitted {
-		return errors.New("请先选中系统授权窗口的密码框，再点击填写管理员密码")
+		return errors.New("Сначала выберите поле пароля в окне системной авторизации, затем нажмите для ввода пароля администратора")
 	}
 	password, err := s.maintenancePassword()
 	if err != nil {
@@ -255,7 +255,7 @@ func (s *loginSession) fillMaintenancePassword(window maintenanceWindow) error {
 	defer func() { clear(password) }()
 	sequence, valid := passwordKeys(string(bytes.TrimRight(password, "\r\n")))
 	if !valid {
-		return errors.New("安装管理员凭据格式无效，请检查安装记录")
+		return errors.New("Неверный формат учётных данных администратора установки, проверьте запись установки")
 	}
 	check := func() error {
 		current, err := probe.target()
@@ -264,10 +264,10 @@ func (s *loginSession) fillMaintenancePassword(window maintenanceWindow) error {
 		}
 		if time.Now().After(s.expires) || s.screenID != "maintenance-"+current.Session {
 			s.close()
-			return errors.New("客机授权会话已结束，请重新打开维护画面")
+			return errors.New("Сессия авторизации гостевой системы завершена, откройте окно обслуживания заново")
 		}
 		if !window.permitsPassword(current, selection, probe.user, time.Now()) {
-			return errors.New("系统授权窗口或密码框已变化，填写已停止，请重新选中密码框")
+			return errors.New("Окно системной авторизации или поле пароля изменились, ввод остановлен; выберите поле пароля заново")
 		}
 		return nil
 	}
@@ -275,20 +275,20 @@ func (s *loginSession) fillMaintenancePassword(window maintenanceWindow) error {
 		return err
 	}
 	if !target.Accessibility && !s.surface.Click(selection.X, selection.Y) {
-		return errors.New("所选密码框已变化，请重新点选")
+		return errors.New("Выбранное поле пароля изменилось, выберите его заново")
 	}
 	if err = check(); err != nil {
 		return err
 	}
 	if !s.surface.SelectAll() {
-		return errors.New("系统密码框尚未准备好，请重试")
+		return errors.New("Поле системного пароля ещё не готово, повторите попытку")
 	}
 	for _, key := range sequence {
 		if err = check(); err != nil {
 			return err
 		}
 		if !s.surface.Key(key.code, key.shift) {
-			return errors.New("管理员密码未能填写，请重新选中密码框后重试")
+			return errors.New("Не удалось ввести пароль администратора, выберите поле пароля заново и повторите")
 		}
 	}
 	return nil
@@ -297,7 +297,7 @@ func (s *loginSession) fillMaintenancePassword(window maintenanceWindow) error {
 func (s *loginSession) maintenancePassword() ([]byte, error) {
 	user, err := guestos.MacOSProvisionUser(s.profile)
 	if err != nil || user != s.maintenanceAdministrator {
-		return nil, errors.New("客机安装身份已变化，请重新打开维护画面")
+		return nil, errors.New("Учётная запись установки гостевой системы изменилась, откройте окно обслуживания заново")
 	}
 	args, err := guestos.MacOSSSHArgs(s.profile, user)
 	if err != nil {
@@ -313,7 +313,7 @@ exec /bin/cat "$p"`
 	cmd.Env = []string{"PATH=/usr/bin:/bin", "LC_ALL=C"}
 	pipe, err := cmd.StdoutPipe()
 	if err != nil || cmd.Start() != nil {
-		return nil, errors.New("安装管理员凭据暂时不可用")
+		return nil, errors.New("Учётные данные администратора установки временно недоступны")
 	}
 	data, readErr := io.ReadAll(io.LimitReader(pipe, 1025))
 	if readErr != nil || len(data) > 1024 {
@@ -321,7 +321,7 @@ exec /bin/cat "$p"`
 	}
 	if err = cmd.Wait(); err != nil || readErr != nil || len(data) == 0 || len(data) > 1024 {
 		clear(data)
-		return nil, errors.New("安装管理员凭据不可用，请核对安装记录")
+		return nil, errors.New("Учётные данные администратора установки недоступны, проверьте запись установки")
 	}
 	return data, nil
 }

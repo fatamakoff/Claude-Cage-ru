@@ -67,14 +67,14 @@ func stopWindowsCore(profile string) error {
 	}
 	var record windowsCoreRecord
 	if len(b) > 4096 || json.Unmarshal(b, &record) != nil || record.PID == 0 || record.Created == 0 {
-		return errors.New("Cage 代理进程记录无效")
+		return errors.New("Неверная запись процесса прокси Cage")
 	}
 	core, err := CorePath()
 	if err != nil {
 		return err
 	}
 	if !strings.EqualFold(filepath.Clean(core), filepath.Clean(record.Executable)) {
-		return errors.New("Cage 代理进程不属于当前安装目录")
+		return errors.New("Процесс прокси Cage не относится к текущему каталогу установки")
 	}
 	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE|windows.SYNCHRONIZE, false, record.PID)
 	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
@@ -111,7 +111,7 @@ func stopWindowsCore(profile string) error {
 			return err
 		}
 		if state != windows.WAIT_OBJECT_0 {
-			return errors.New("Cage 代理进程未能及时停止")
+			return errors.New("Процесс прокси Cage не остановился вовремя")
 		}
 	}
 	return removeStaleCore(profile, path)
@@ -173,7 +173,7 @@ func startWindowsCore(ctx context.Context, profile string, s Store) error {
 	}
 	l, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", s.Port))
 	if err != nil {
-		return errors.New("Cage 代理端口已被占用，请更换独立端口")
+		return errors.New("Порт прокси Cage уже занят, выберите другой отдельный порт")
 	}
 	l.Close()
 	core, err := CorePath()
@@ -242,7 +242,7 @@ func startWindowsCore(ctx context.Context, profile string, s Store) error {
 		case <-ctx.Done():
 			return stopWindowsCoreAfterFailure(profile, ctx.Err())
 		case <-timeout.C:
-			return stopWindowsCoreAfterFailure(profile, errors.Join(errors.New("代理核心启动超时，请查看私有代理日志"), lastReadiness))
+			return stopWindowsCoreAfterFailure(profile, errors.Join(errors.New("Истекло время запуска ядра прокси, проверьте журнал приватного прокси"), lastReadiness))
 		case <-ticker.C:
 			lastReadiness = checkRunning(ctx, profile, s)
 			if lastReadiness == nil {
@@ -271,20 +271,20 @@ func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	if err != nil {
 		var exited *exec.ExitError
 		if errors.As(err, &exited) && exited.ExitCode() == 2 {
-			return "", errors.New("未找到可用的物理 IPv4 网卡。请连接以太网或 Wi-Fi；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage 外网保持关闭")
+			return "", errors.New("Не найден доступный физический сетевой адаптер IPv4. Подключите Ethernet или Wi-Fi; виртуальные машины Windows и облачные хосты только с виртуальными адаптерами пока недоступны. Внешняя сеть Cage остаётся выключенной")
 		}
-		return "", errors.New("无法读取 Windows 物理网卡信息，请确认系统网络服务正常后重试；Cage 外网保持关闭")
+		return "", errors.New("Не удалось прочитать сведения о физических сетевых адаптерах Windows, проверьте работу сетевой службы системы и повторите; внешняя сеть Cage остаётся выключенной")
 	}
 	var selected struct {
 		Name  string
 		Index int
 	}
 	if json.Unmarshal(out, &selected) != nil || selected.Name == "" || selected.Index <= 0 {
-		return "", errors.New("Windows 物理网卡信息无效")
+		return "", errors.New("Неверные сведения о физическом сетевом адаптере Windows")
 	}
 	iface, err := net.InterfaceByIndex(selected.Index)
 	if err != nil || iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-		return "", errors.New("物理网卡已断开，请重试")
+		return "", errors.New("Физический сетевой адаптер отключён, повторите")
 	}
 	return iface.Name, nil
 }

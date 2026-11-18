@@ -10,5 +10,5 @@ import (
 )
 
 func InspectHyperV(context.Context, uuid.UUID) (HyperVInspection, error) {
-	return HyperVInspection{}, errors.New("--vm-id 只支持查询本机 Windows Hyper-V 虚拟机")
+	return HyperVInspection{}, errors.New("--vm-id поддерживает запрос виртуальных машин Windows Hyper-V только на этом компьютере")
 }

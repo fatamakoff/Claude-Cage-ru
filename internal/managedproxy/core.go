@@ -31,7 +31,7 @@ type coreError struct {
 }
 
 func (e *coreError) Error() string {
-	message := "Cage 代理核心操作失败（" + e.stage + "）"
+	message := "Сбой операции ядра прокси Cage (" + e.stage + ")"
 	var nested *coreError
 	var errno syscall.Errno
 	var network net.Error
@@ -70,7 +70,7 @@ func CorePath() (string, error) {
 			return filepath.Clean(p), nil
 		}
 	}
-	return "", errors.New("Cage 随附代理核心缺失，请重新安装完整应用；开发构建请运行 scripts/fetch-proxy-core.sh")
+	return "", errors.New("Ядро прокси, поставляемое с Cage, отсутствует — переустановите приложение целиком; для сборки из исходников запустите scripts/fetch-proxy-core.sh")
 }
 func Validate(ctx context.Context, profile string, s Store) error {
 	core, err := CorePath()
@@ -107,7 +107,7 @@ func Validate(ctx context.Context, profile string, s Store) error {
 	defer output.Close()
 	cmd.Stdout, cmd.Stderr = output, output
 	if e := cmd.Run(); e != nil {
-		return errors.New("随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在设置的“日志与诊断”中导出诊断包查看校验记录；原配置已保留")
+		return errors.New("Поставляемое ядро Mihomo не прошло проверку конфигурации — проверьте протокол и параметры узлов; сведения о проверке можно посмотреть в экспортированном диагностическом пакете в разделе «Журналы и диагностика» настроек; исходная конфигурация сохранена")
 	}
 	return nil
 }
@@ -198,14 +198,14 @@ func Stop(profile string) error {
 		return nil
 	}
 	if runtime.GOOS != "darwin" {
-		return errors.New("内置代理当前支持 macOS")
+		return errors.New("Встроенный прокси поддерживается только в macOS")
 	}
 	domain := "gui/" + strconv.Itoa(os.Getuid())
 	if exec.Command("launchctl", "print", domain+"/"+label(profile)).Run() != nil {
 		return nil
 	}
 	if exec.Command("launchctl", "bootout", domain, servicePath(profile)).Run() != nil {
-		return errors.New("未能停止 Cage 专属代理进程")
+		return errors.New("Не удалось остановить выделенный процесс прокси Cage")
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func Start(ctx context.Context, profile string, s Store) error {
 		return startLinuxCore(ctx, profile, s)
 	}
 	if runtime.GOOS != "darwin" {
-		return errors.New("内置代理当前支持 macOS")
+		return errors.New("Встроенный прокси поддерживается только в macOS")
 	}
 	name, err := PhysicalInterface(ctx)
 	if err != nil {
@@ -237,7 +237,7 @@ func Start(ctx context.Context, profile string, s Store) error {
 	// Never attach to or kill an unknown listener, even if it uses our port.
 	l, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", s.Port))
 	if err != nil {
-		return errors.New("Cage 代理端口已被占用，请更换独立端口")
+		return errors.New("Порт прокси Cage уже занят, выберите отдельный порт")
 	}
 	l.Close()
 	_, err = CorePath()
@@ -277,7 +277,7 @@ func Start(ctx context.Context, profile string, s Store) error {
 		return err
 	}
 	if exec.CommandContext(ctx, "launchctl", "bootstrap", "gui/"+strconv.Itoa(os.Getuid()), servicePath(profile)).Run() != nil {
-		return errors.New("无法启动 Cage 自带代理核心")
+		return errors.New("Не удалось запустить поставляемое с Cage ядро прокси")
 	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -290,7 +290,7 @@ func Start(ctx context.Context, profile string, s Store) error {
 			return ctx.Err()
 		case <-deadline.C:
 			_ = Stop(profile)
-			return errors.New("代理核心启动超时，请查看私有代理日志")
+			return errors.New("Истекло время ожидания запуска ядра прокси, проверьте журнал приватного прокси")
 		case <-ticker.C:
 			if Running(ctx, profile, s) {
 				if err = os.Chmod(Socket(profile), 0600); err != nil {

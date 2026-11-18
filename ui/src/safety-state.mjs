@@ -3,17 +3,17 @@ export function isSafetyCheckMessage(message) {
 }
 
 export function networkState(status, now = Date.now()) {
-  if (!status?.vm_running) return { mode: "stopped", label: "环境已停止" };
+  if (!status?.vm_running) return { mode: "stopped", label: "Среда остановлена" };
   const gate = status.safety?.gate;
-  if (!gate) return { mode: "unknown", label: "外网状态待确认" };
+  if (!gate) return { mode: "unknown", label: "Состояние интернета не подтверждено" };
   const until = Date.parse(gate.until);
   if (gate.mode === "open" && Number.isFinite(until) && until > now)
-    return { mode: "open", label: "外网已放行" };
+    return { mode: "open", label: "Интернет разрешён" };
   if (gate.mode === "checking" && Number.isFinite(until) && until > now)
-    return { mode: "checking", label: "正在检查" };
+    return { mode: "checking", label: "Проверка" };
   if (gate.mode === "closed" || (Number.isFinite(until) && until <= now))
-    return { mode: "closed", label: "外网已关闭" };
-  return { mode: "unknown", label: "外网状态待确认" };
+    return { mode: "closed", label: "Интернет закрыт" };
+  return { mode: "unknown", label: "Состояние интернета не подтверждено" };
 }
 
 export function canonicalExitPolicy(value = {}) {
@@ -32,7 +32,7 @@ export function reportForSharing(report) {
     policy: report.policy,
     created_at: report.created_at,
     checks: report.checks,
-    scope: "采样与运行时策略检查；不代表平台账号资格或完整虚拟化审计",
+    scope: "проверки выборок и политик времени выполнения; не означают права аккаунта на платформе и не заменяют полный аудит виртуализации",
   };
 }
 

@@ -18,7 +18,7 @@ func (s *Server) removeProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.op.TryLock() {
-		http.Error(w, "另一个操作仍在进行，请稍候", http.StatusConflict)
+		http.Error(w, "Другая операция ещё выполняется, подождите", http.StatusConflict)
 		return
 	}
 	defer s.op.Unlock()
@@ -26,12 +26,12 @@ func (s *Server) removeProject(w http.ResponseWriter, r *http.Request) {
 	closing, ready, preferences := s.closing, s.ready, s.preferences
 	s.mu.Unlock()
 	if closing || s.busy() {
-		http.Error(w, "环境正在处理其他操作，请稍后重试", http.StatusConflict)
+		http.Error(w, "Среда выполняет другую операцию, повторите попытку позже", http.StatusConflict)
 		return
 	}
 	path := input.Workspace
 	if path == "" || isClientMountPath(path) {
-		http.Error(w, "请选择已添加的项目；客户端共享请使用停止共享。", http.StatusBadRequest)
+		http.Error(w, "Выберите добавленный проект; для общих ресурсов клиента используйте остановку общего доступа.", http.StatusBadRequest)
 		return
 	}
 	projects, err := s.projectPaths()
@@ -46,7 +46,7 @@ func (s *Server) removeProject(w http.ResponseWriter, r *http.Request) {
 	if !ready {
 		running, err := controllerVMState(s.profile)
 		if err != nil || running {
-			http.Error(w, "环境仍在运行或运行状态无法确认。请恢复连接，或保存工作并停止环境后再移除项目。", http.StatusConflict)
+			http.Error(w, "Среда всё ещё работает или её состояние определить нельзя. Восстановите подключение либо сохраните работу и остановите среду, затем удалите проект.", http.StatusConflict)
 			return
 		}
 	}
@@ -118,7 +118,7 @@ func (s *Server) checkProjectFoldersIdle(ctx context.Context, folders []string, 
 	}
 	for _, terminal := range s.terminals.snapshot() {
 		if slices.Contains(folders, terminal["workspace"].(string)) && terminal["closed"] != true {
-			return errors.New("请先关闭此项目的终端，再移除项目。会话历史会保留。")
+			return errors.New("Сначала закройте терминал этого проекта, затем удалите проект. История сессии сохранится.")
 		}
 	}
 	if ready && sharedCLILauncher(claudeTerminalCommand(preferences)) {
@@ -131,7 +131,7 @@ func (s *Server) checkProjectFoldersIdle(ctx context.Context, folders []string, 
 			err = s.discoverTerminalConversations(ctx, projects)
 		}
 		if err != nil {
-			return errors.New("暂时无法核对运行中的会话。请恢复会话连接，或保存工作并停止环境后再移除项目。")
+			return errors.New("Пока нельзя проверить активные сессии. Восстановите подключение к сессии либо сохраните работу и остановите среду, затем удалите проект.")
 		}
 	}
 	s.mobileCLI.mu.Lock()
@@ -144,7 +144,7 @@ func (s *Server) checkProjectFoldersIdle(ctx context.Context, folders []string, 
 	}
 	s.mobileCLI.mu.Unlock()
 	if active {
-		return errors.New("请先结束此项目正在运行的会话，再移除项目。会话历史会保留。")
+		return errors.New("Сначала завершите выполняющиеся сессии этого проекта, затем удалите проект. История сессии сохранится.")
 	}
 	if ready {
 		body, err := s.browserAction(ctx, "tabs", nil)
@@ -155,11 +155,11 @@ func (s *Server) checkProjectFoldersIdle(ctx context.Context, folders []string, 
 			} `json:"tabs"`
 		}
 		if err != nil || json.Unmarshal(body, &browser) != nil || browser.Tabs == nil {
-			return errors.New("暂时无法核对文件编辑器。请恢复浏览器连接，或保存工作并停止环境后再移除项目。")
+			return errors.New("Пока нельзя проверить файловый редактор. Восстановите подключение браузера либо сохраните работу и остановите среду, затем удалите проект.")
 		}
 		for _, tab := range browser.Tabs {
 			if tab.Kind == "editor" && slices.Contains(folders, tab.Workspace) {
-				return errors.New("请先保存文件并关闭此项目的编辑器，再移除项目。")
+				return errors.New("Сначала сохраните файлы и закройте редактор этого проекта, затем удалите проект.")
 			}
 		}
 	}

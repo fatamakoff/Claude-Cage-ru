@@ -19,16 +19,16 @@ func MacOSSSHPort(config []byte) (int, error) {
 			continue
 		}
 		if len(fields) != 2 || port != 0 {
-			return 0, errors.New("macOS 客机 SSH 端口配置无效")
+			return 0, errors.New("Неверная конфигурация порта SSH гостевой macOS")
 		}
 		value, err := strconv.Atoi(fields[1])
 		if err != nil || value < 1 || value > 65535 {
-			return 0, errors.New("macOS 客机 SSH 端口配置无效")
+			return 0, errors.New("Неверная конфигурация порта SSH гостевой macOS")
 		}
 		port = value
 	}
 	if port == 0 {
-		return 0, errors.New("macOS 客机 SSH 端口尚未就绪")
+		return 0, errors.New("Порт SSH гостевой macOS ещё не готов")
 	}
 	return port, nil
 }
@@ -69,7 +69,7 @@ func MacOSSSHArgs(profile, user string) ([]string, error) {
 // MacOSSSHArgs: that set clears all forwards.
 func MacOSScreenSharingSSHArgs(profile, user string, hostPort int) ([]string, error) {
 	if hostPort < 1 || hostPort > 65535 {
-		return nil, errors.New("本机屏幕共享转发端口无效")
+		return nil, errors.New("Недопустимый локальный порт перенаправления общего доступа к экрану")
 	}
 	base, err := macOSSSHBaseArgs(profile, user)
 	if err != nil {
@@ -96,12 +96,12 @@ func MacOSProvisionUser(profile string) (string, error) {
 			continue
 		}
 		if len(fields) != 2 || user != "" || (fields[1] != "cage" && fields[1] != "cageprovision") {
-			return "", errors.New("macOS 客机安装账户配置无效")
+			return "", errors.New("Неверная конфигурация учётной записи установки гостевой macOS")
 		}
 		user = fields[1]
 	}
 	if user == "" {
-		return "", errors.New("macOS 客机安装账户尚未就绪")
+		return "", errors.New("Учётная запись установки гостевой macOS ещё не готова")
 	}
 	return user, nil
 }

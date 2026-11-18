@@ -112,7 +112,7 @@ func (s *loginSession) handle(in request) reply {
 		}
 		s.close()
 		if err = guestos.FinishMacOSSetup(s.profile, bound.SetupID); err != nil {
-			return reply{Error: "未能保存首次设置，请重试"}
+			return reply{Error: "Не удалось сохранить первичную настройку. Повторите"}
 		}
 		return reply{Closed: true}
 	}
@@ -121,7 +121,7 @@ func (s *loginSession) handle(in request) reply {
 		s.setup = in.Setup
 		s.screenID = s.currentScreen()
 		if s.screenID == "" {
-			return reply{Error: "当前没有客机登录画面。客机已登录时可直接使用工作台应用；系统权限请使用授权设置入口。此按钮不打开完整客机桌面。"}
+			return reply{Error: "Сейчас нет экрана входа гостевой системы. Если гостевая система уже вошла, используйте приложение рабочей области; для системных разрешений используйте раздел настроек авторизации. Эта кнопка не открывает полный рабочий стол гостевой системы."}
 		}
 		s.token = rand.Text()
 		s.expires = time.Now().Add(2 * time.Minute)
@@ -146,7 +146,7 @@ func (s *loginSession) handle(in request) reply {
 	case "frame":
 		frame, err := s.surface.Image(nil)
 		if err != nil {
-			return reply{Error: "尚未收到 Apple 登录画面"}
+			return reply{Error: "Экран входа Apple ещё не получен"}
 		}
 		if s.currentScreen() != s.screenID {
 			s.close()
@@ -156,7 +156,7 @@ func (s *loginSession) handle(in request) reply {
 	case "click":
 		s.passwordSelection = passwordSelection{}
 		if in.X < 0 || in.Y < 0 || in.X >= 1024 || in.Y >= 640 || !s.surface.Click(in.X, in.Y) {
-			return reply{Error: "无效的登录位置"}
+			return reply{Error: "Недопустимая позиция входа"}
 		}
 		if s.setup {
 			s.selectPasswordPosition(in.X, in.Y)
@@ -166,17 +166,17 @@ func (s *loginSession) handle(in request) reply {
 		// ANSI printable keys, Return, Tab, Escape and Backspace. No global shortcuts.
 		setupNavigation := s.setup && (in.Code >= 123 && in.Code <= 126 || in.Code == 116 || in.Code == 121)
 		if in.Code < 0 || (in.Code > 53 && !setupNavigation) || !s.surface.Key(in.Code, in.Shift) {
-			return reply{Error: "不支持此登录按键"}
+			return reply{Error: "Эта клавиша входа не поддерживается"}
 		}
 	case "scroll":
 		s.passwordSelection = passwordSelection{}
 		if !s.setup || in.X < 0 || in.Y < 0 || in.X >= 1024 || in.Y >= 640 ||
 			in.DeltaX < -512 || in.DeltaX > 512 || in.DeltaY < -512 || in.DeltaY > 512 ||
 			!s.surface.Scroll(in.X, in.Y, in.DeltaX, in.DeltaY) {
-			return reply{Error: "无效的首次设置滚动操作"}
+			return reply{Error: "Недопустимая операция прокрутки первичной настройки"}
 		}
 	default:
-		return reply{Error: "未知的登录操作"}
+		return reply{Error: "Неизвестное действие входа"}
 	}
 	return reply{}
 }

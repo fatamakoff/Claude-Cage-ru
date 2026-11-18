@@ -16,7 +16,7 @@ func (s *Server) createRemoteWindowsTerminal(input terminalRequest) (*terminalSe
 		return s.createWindowsCLITerminal(input)
 	}
 	if input.Kind != "" && input.Kind != "shell" || input.ClaudeAccountID != "" || input.sharedID != "" {
-		return nil, errors.New("普通 PowerShell 终端不能指定 Claude 账号、会话或其他终端类型")
+		return nil, errors.New("Обычный терминал PowerShell не может указывать аккаунт Claude, сессию или другой тип терминала")
 	}
 	s.mu.Lock()
 	ready, closing := s.ready, s.closing
@@ -40,7 +40,7 @@ func (s *Server) createRemoteWindowsTerminal(input terminalRequest) (*terminalSe
 		return nil, err
 	}
 	if input.Workspace != "" && !strings.EqualFold(input.Workspace, state.Home) {
-		return nil, errors.New("Windows 云端目前仅开放沙箱工作目录，外部项目尚未授权")
+		return nil, errors.New("В облаке Windows сейчас открыт только рабочий каталог песочницы; внешние проекты пока не разрешены")
 	}
 	cmd, err := guestos.WindowsRelayCommand(s.lifetimeContext(), s.profile, "headless-terminal")
 	if err != nil {
@@ -64,7 +64,7 @@ func (s *Server) remoteWindowsCLIWorkspace(path string) (string, error) {
 	home := s.windowsState.Home
 	s.mu.Unlock()
 	if home == "" || path != "" && !strings.EqualFold(path, home) {
-		return "", errors.New("Windows 云端目前仅开放沙箱工作目录，外部项目尚未授权")
+		return "", errors.New("В облаке Windows сейчас открыт только рабочий каталог песочницы; внешние проекты пока не разрешены")
 	}
 	return home, nil
 }

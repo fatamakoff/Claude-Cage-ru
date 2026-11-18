@@ -174,9 +174,9 @@ func serve(configPath string, clientOnly bool, fullConfigPath string) (returned 
 	defer lock.Close()
 	if err = lockControllerForStart(lock); err != nil {
 		if controllerLockContended(err) {
-			return errors.New("此配置已有工作台服务正在运行")
+			return errors.New("Для этой конфигурации уже запущена служба рабочей области")
 		}
-		return fmt.Errorf("无法锁定工作台控制文件: %w", err)
+		return fmt.Errorf("Не удалось заблокировать файл управления рабочей областью: %w", err)
 	}
 	if err := host.ProtectFile(lock.Name()); err != nil {
 		return err
@@ -224,7 +224,7 @@ func serve(configPath string, clientOnly bool, fullConfigPath string) (returned 
 			return err
 		}
 		if s.macosGuest != nil && s.windowsGuest != nil {
-			return errors.New("一个配置只能绑定一个客机系统")
+			return errors.New("Одна конфигурация может быть привязана только к одной гостевой системе")
 		}
 		if s.windowsGuest != nil {
 			pending, err := guestos.WindowsCloneCleanupPending(profile)
@@ -272,16 +272,16 @@ func serve(configPath string, clientOnly bool, fullConfigPath string) (returned 
 		}
 		// A previously running VM cannot keep an unmanaged endpoint online.
 		if s.macosGuest != nil {
-			_ = s.closeProxyGate("控制服务已重新连接，外网等待重新检查")
+			_ = s.closeProxyGate("Служба управления переподключена, внешняя сеть ожидает повторной проверки")
 		} else if cfg, e := loadConfig(configPath); s.windowsGuest == nil && (e != nil || cfg.RequireManagedProxy(profile) != nil) {
-			_ = s.closeProxyGate("尚未配置有效节点，外网保持关闭")
+			_ = s.closeProxyGate("Действительный узел не настроен, внешняя сеть остаётся закрытой")
 		}
 		if s.networkPaused && s.windowsGuest == nil {
-			_ = s.closeProxyGate("网络保持暂停，请手动恢复后再联网")
+			_ = s.closeProxyGate("Сеть остаётся на паузе; возобновите её вручную, чтобы выйти в сеть")
 		}
 		s.startMonitors()
 		if err = s.restorePhone(); err != nil {
-			s.phones.status = "无法恢复手机配对，请移除旧记录后重试"
+			s.phones.status = "Не удалось восстановить сопряжение с телефоном. Удалите старую запись и повторите"
 		}
 		defer s.stopPhone()
 	}
@@ -371,7 +371,7 @@ func (s *Server) handler() http.Handler {
 			return
 		}
 		if !s.consumeTicket(v.Token) {
-			http.Error(w, "访问凭证无效，请从 Cage 应用重新打开。", http.StatusUnauthorized)
+			http.Error(w, "Недействительный токен доступа. Откройте рабочую область заново из приложения Cage.", http.StatusUnauthorized)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{Name: s.cookieName(), Value: s.session, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 86400 * 30})
@@ -466,7 +466,7 @@ func (s *Server) handler() http.Handler {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if !s.ready {
-			http.Error(w, "环境尚未就绪", 409)
+			http.Error(w, "Среда ещё не готова", 409)
 			return
 		}
 		// A Windows guest's browser takes the viewer's density with each size;
@@ -538,7 +538,7 @@ func (s *Server) handler() http.Handler {
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/session" && r.URL.Path != "/api/launch" && r.URL.Path != "/api/handoff" {
 			c, e := r.Cookie(s.cookieName())
 			if e != nil || !equalSecret(c.Value, s.session) {
-				http.Error(w, "请从 Cage 应用重新打开工作台", 401)
+				http.Error(w, "Откройте рабочую область заново из приложения Cage", 401)
 				return
 			}
 		}
@@ -552,12 +552,12 @@ func (s *Server) handler() http.Handler {
 			pending, err := guestos.LoadInstallation(s.profile)
 			if err != nil {
 				if !macOSInstallRecoveryRoute(r.Method, r.URL.Path) {
-					http.Error(w, "安装记录无法读取，请保留现有数据", http.StatusConflict)
+					http.Error(w, "Не удалось прочитать запись установки. Сохраните существующие данные", http.StatusConflict)
 					return
 				}
 			}
 			if pending != nil && pending.System == guestos.MacOS && !macOSInstallRecoveryRoute(r.Method, r.URL.Path) {
-				http.Error(w, "macOS 客机尚未完成安装", http.StatusConflict)
+				http.Error(w, "Установка гостевой macOS не завершена", http.StatusConflict)
 				return
 			}
 		}
@@ -570,7 +570,7 @@ func (s *Server) handler() http.Handler {
 			return
 		}
 		if s.macosGuest != nil && (!macOSWorkbenchRoute(r.URL.Path) || s.macSetupPending() && !macOSSetupRoute(r.URL.Path)) {
-			http.Error(w, "此功能尚未接入 macOS 客机", http.StatusConflict)
+			http.Error(w, "Эта функция пока не поддерживается для гостевой macOS", http.StatusConflict)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/mobile/") {
@@ -584,7 +584,7 @@ func (s *Server) handler() http.Handler {
 				}
 			}
 			if s.clientOnly || s.desktopEntry {
-				http.Error(w, "请连接运行 Cage 环境的主机", http.StatusConflict)
+				http.Error(w, "Подключитесь к хосту, на котором работает среда Cage", http.StatusConflict)
 				return
 			}
 		} else if s.macosGuest == nil && s.windowsGuest == nil && s.routeRemote(w, r) {
@@ -592,7 +592,7 @@ func (s *Server) handler() http.Handler {
 		}
 		ctx, finish, err := s.beginActivity(r.Context())
 		if err != nil {
-			http.Error(w, "后台正在更新，请重新打开 Cage。", http.StatusServiceUnavailable)
+			http.Error(w, "Фоновый сервис обновляется. Откройте Cage заново.", http.StatusServiceUnavailable)
 			return
 		}
 		defer finish()
@@ -602,13 +602,13 @@ func (s *Server) handler() http.Handler {
 		trustedDesktop := s.hasTrustedView(r)
 		phoneRoom := s.pairedPhoneRoom(r)
 		if (s.windowsGuest != nil || s.macosGuest != nil) && strings.HasPrefix(r.URL.Path, "/api/") && !bootstrapRoute && !trustedDesktop && phoneRoom == nil && !s.hasRemoteWindowsView(r) {
-			http.Error(w, "请通过本机 Cage 窗口或当前配对手机打开客机", http.StatusForbidden)
+			http.Error(w, "Откройте гостевую систему через локальное окно Cage или текущий сопряжённый телефон", http.StatusForbidden)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") && !accountRoute && !bootstrapRoute && !strings.HasPrefix(r.URL.Path, "/api/diagnostics") && !(r.Method == "GET" && r.URL.Path == "/api/appearance") {
 			epoch, unlocked := s.account.accessFor(trustedDesktop, phoneRoom != nil)
 			if !unlocked {
-				http.Error(w, "Cage 已锁定，请先登录", http.StatusLocked)
+				http.Error(w, "Cage заблокирован. Сначала войдите", http.StatusLocked)
 				return
 			}
 			ctx, cancel := context.WithCancel(r.Context())
@@ -648,7 +648,7 @@ func (s *Server) handler() http.Handler {
 }
 func readJSON(w http.ResponseWriter, r *http.Request, v any, limits ...int64) bool {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		http.Error(w, "需要 JSON 请求", 415)
+		http.Error(w, "Требуется запрос JSON", 415)
 		return false
 	}
 	limit := int64(64 << 10)
@@ -658,12 +658,12 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any, limits ...int64) bo
 	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
-		http.Error(w, "请求格式无效", 400)
+		http.Error(w, "Неверный формат запроса", 400)
 		return false
 	}
 	var extra any
 	if d.Decode(&extra) != io.EOF {
-		http.Error(w, "请求格式无效", 400)
+		http.Error(w, "Неверный формат запроса", 400)
 		return false
 	}
 	return true
@@ -682,7 +682,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	}
 	projects, err := s.projectPaths()
 	if err != nil {
-		requestError(w, errors.New("无法读取项目列表，请检查项目配置"))
+		requestError(w, errors.New("Не удалось прочитать список проектов. Проверьте конфигурацию проектов"))
 		return
 	}
 	groups, err := s.projectGroups()
@@ -696,10 +696,10 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	_, e := os.Stat(filepath.Join(s.profile, "previous-profile.json"))
 	projectError := ""
 	if len(s.projectErrors) > 0 {
-		projectError = "部分项目文件夹尚未连接，环境和浏览器可继续使用。"
+		projectError = "Часть папок проектов ещё не подключена; средой и браузером можно пользоваться."
 	}
 	if m := s.clientMounts[s.clientWorkspace]; s.clientWorkspace != "" && (m == nil || !m.live()) {
-		projectError = "当前本机项目已断开，请重新共享或选择其他项目。"
+		projectError = "Текущий локальный проект отключён. Поделитесь им заново или выберите другой проект."
 	}
 	view := map[string]any{
 		"projects": projects, "project_groups": groups, "ready": s.ready, "vm_running": running,
@@ -723,7 +723,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		view["guest_capabilities"] = s.windowsCapabilitiesLocked()
 		view["location"] = nil
 		if s.safety.Gate == nil && view["network_error"] == "" {
-			view["network_error"] = "Windows 客机网络组件尚未连接，外网保持关闭"
+			view["network_error"] = "Сетевые компоненты гостевой Windows ещё не подключены, внешняя сеть остаётся закрытой"
 		}
 	} else if s.macosGuest != nil {
 		view["guest_system"] = guestos.MacOS
@@ -814,7 +814,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) {
 	var v savedProfile
 	b, e := os.ReadFile(filepath.Join(s.profile, "previous-profile.json"))
 	if e != nil || json.Unmarshal(b, &v) != nil {
-		requestError(w, errors.New("没有可恢复的配置"))
+		requestError(w, errors.New("Нет конфигурации для восстановления"))
 		return
 	}
 	s.launch(w, "restore", func() error {
@@ -835,13 +835,13 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if s.windowsGuest != nil || s.macosGuest != nil {
-			http.Error(w, "已有客机不能替换创建配置", http.StatusConflict)
+			http.Error(w, "Существующую гостевую систему нельзя заменить конфигурацией создания", http.StatusConflict)
 			return
 		}
 	}
 	if s.windowsGuest != nil {
 		if input.System != "" && input.System != guestos.Windows11 {
-			http.Error(w, "此配置已绑定 Windows 客机", http.StatusConflict)
+			http.Error(w, "Эта конфигурация привязана к гостевой Windows", http.StatusConflict)
 			return
 		}
 		s.launch(w, "start", s.startWindowsGuest)
@@ -849,7 +849,7 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.macosGuest != nil {
 		if input.System != "" && input.System != guestos.MacOS {
-			http.Error(w, "此配置已绑定 macOS 客机", http.StatusConflict)
+			http.Error(w, "Эта конфигурация привязана к гостевой macOS", http.StatusConflict)
 			return
 		}
 		s.launch(w, "start", s.startMacOSGuest)
@@ -877,7 +877,7 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 	}
 	pending, err := guestos.LoadInstallation(s.profile)
 	if err != nil {
-		http.Error(w, "客户机安装记录无法读取，请保留现有数据", http.StatusConflict)
+		http.Error(w, "Не удалось прочитать запись установки гостевой системы. Сохраните существующие данные", http.StatusConflict)
 		return
 	}
 	if pending != nil && pending.System == guestos.MacOS {
@@ -895,11 +895,11 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if pending != nil && !hostimage.IsLinux(pending.System) {
-		http.Error(w, "已有原生客户机安装，请继续原安装", http.StatusConflict)
+		http.Error(w, "Уже есть установка нативной гостевой системы. Продолжите её", http.StatusConflict)
 		return
 	}
 	if pending != nil && input.System != "" && pending.System != input.System {
-		http.Error(w, "此环境已绑定所选 Linux 系统，请继续原安装", http.StatusConflict)
+		http.Error(w, "Эта среда привязана к выбранной системе Linux. Продолжите исходную установку", http.StatusConflict)
 		return
 	}
 	if pending != nil {
@@ -916,7 +916,7 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 		if canInstallCatalogLinux(input.System) {
 			s.beginGuestInstall(w, r, input)
 		} else {
-			http.Error(w, "当前环境无法启动所选客户机系统，请保留原环境并重新检查安装选择", http.StatusConflict)
+			http.Error(w, "Текущая среда не может запустить выбранную гостевую систему. Сохраните текущую среду и перепроверьте выбор установки", http.StatusConflict)
 		}
 		return
 	}
@@ -951,9 +951,9 @@ func (s *Server) requestStop(w http.ResponseWriter, logout bool) {
 	if s.macosGuest != nil {
 		// Stopping the guest revokes its current grant. A user's saved pause
 		// remains distinct so the next Mac start can honor the same intent.
-		_ = s.revokeNetworkNow("正在停止环境", false)
+		_ = s.revokeNetworkNow("Остановка среды", false)
 	} else if s.windowsGuest == nil {
-		_ = s.pauseNetworkNow("正在停止环境")
+		_ = s.pauseNetworkNow("Остановка среды")
 	}
 	kind := "stop"
 	if logout {

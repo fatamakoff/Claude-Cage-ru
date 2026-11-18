@@ -69,13 +69,13 @@ func windowsWorkbenchRoute(path string) bool {
 }
 
 var (
-	errWindowsAgentPending  = errors.New("Windows 客机已启动，正在等待图形用户代理连接")
-	errWindowsLoginRequired = errors.New("请在虚拟 Windows 的登录界面解锁已绑定的客机账户，再返回 Cage")
+	errWindowsAgentPending  = errors.New("Гостевая система Windows запущена, ожидается подключение графического агента пользователя")
+	errWindowsLoginRequired = errors.New("Разблокируйте привязанный аккаунт гостевой системы на экране входа виртуальной Windows и вернитесь в Cage")
 )
 
 func (s *Server) windowsStatus(ctx context.Context) (windowsGuestState, error) {
 	if runtime.GOOS != "windows" {
-		return windowsGuestState{}, errors.New("Windows 客机需要 Windows Hyper-V 主机")
+		return windowsGuestState{}, errors.New("Гостевой системе Windows требуется хост Windows Hyper-V")
 	}
 	binding := s.windowsGuest
 	state := windowsGuestState{}
@@ -83,17 +83,17 @@ func (s *Server) windowsStatus(ctx context.Context) (windowsGuestState, error) {
 		report, err := guestos.InspectHyperV(ctx, binding.VMID)
 		state.Running = err == nil && report.VM != nil && report.VM.State == "Running"
 		if err != nil || report.Lookup != "found" || report.VM == nil {
-			return state, errors.New("无法核验已绑定的 Windows 客机")
+			return state, errors.New("Не удалось проверить привязанную гостевую систему Windows")
 		}
 		vm := report.VM
 		if vm.Generation != 2 || !vm.SecureBoot || vm.SecureBootTemplate != "MicrosoftWindows" || !vm.VirtualTPM {
-			return state, errors.New("Windows 客机安全启动与虚拟 TPM 尚未就绪")
+			return state, errors.New("Безопасная загрузка и виртуальный TPM гостевой системы Windows ещё не готовы")
 		}
 		if vm.NetworkAdapterCount != 0 {
-			return state, errors.New("Windows 客机受控网络出口尚未就绪，请使用已隔离的离线客机")
+			return state, errors.New("Управляемый сетевой выход гостевой системы Windows ещё не готов. Используйте изолированную офлайн-гостевую систему")
 		}
 		if !state.Running {
-			return state, errors.New("Windows 客机尚未启动")
+			return state, errors.New("Гостевая система Windows ещё не запущена")
 		}
 	}
 	operation := "status"
@@ -109,25 +109,25 @@ func (s *Server) windowsStatus(ctx context.Context) (windowsGuestState, error) {
 	cmd.Stderr = io.Discard
 	if err = cmd.Run(); err != nil {
 		if binding.Remote() {
-			return state, errors.New("Windows 云端后台终端未连接，请检查普通账户后台服务")
+			return state, errors.New("Фоновый терминал Windows в облаке не подключён. Проверьте фоновую службу обычного аккаунта")
 		}
 		return state, errWindowsAgentPending
 	}
 	running := state.Running
 	decoder := json.NewDecoder(&output)
 	if decoder.Decode(&state) != nil || decoder.Decode(new(any)) != io.EOF {
-		return windowsGuestState{Running: running}, errors.New("Windows 客机状态响应无效")
+		return windowsGuestState{Running: running}, errors.New("Недопустимый ответ о состоянии гостевой системы Windows")
 	}
 	state.Running = running
 	if state.Version != 1 || state.OS != "windows" || state.VMID != binding.VMID.String() || state.SID != binding.GUIUserSID || state.Session == "" || len(state.Session) > 256 {
-		return state, errors.New("Windows 客机或图形用户身份不匹配")
+		return state, errors.New("Гостевая система Windows или идентичность графического пользователя не совпадают")
 	}
 	state.ComponentsChecked = time.Now()
 	if binding.Remote() {
 		if state.Execution != "appcontainer-headless" || state.ProcessSession != 0 ||
 			!strings.HasPrefix(state.SandboxSID, "S-1-15-2-") || !filepath.IsAbs(state.Home) ||
 			!strings.HasPrefix(state.Session, "headless-") {
-			return state, errors.New("Windows 云端沙箱身份不匹配")
+			return state, errors.New("Идентичность облачной песочницы Windows не совпадает")
 		}
 		state.Running = true
 	}
@@ -144,7 +144,7 @@ type boundedWindowsStatusWriter struct {
 
 func (w *boundedWindowsStatusWriter) Write(data []byte) (int, error) {
 	if len(data) > w.remaining {
-		return 0, errors.New("Windows 客机状态超过限制")
+		return 0, errors.New("Состояние гостевой системы Windows превышает предел")
 	}
 	w.remaining -= len(data)
 	return w.buffer.Write(data)
@@ -243,7 +243,7 @@ func waitWindowsBoot(ctx context.Context, interval time.Duration, attach func(co
 		case <-ctx.Done():
 			timer.Stop()
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return errors.New("Windows 客机尚未连接。请确认已在虚拟 Windows 中登录绑定的账户，随后在 Cage 点击恢复连接")
+				return errors.New("Гостевая система Windows ещё не подключена. Убедитесь, что вошли в привязанный аккаунт в виртуальной Windows, затем нажмите в Cage восстановление подключения")
 			}
 			return ctx.Err()
 		case <-timer.C:
@@ -287,7 +287,7 @@ func (s *Server) startWindowsGuest() error {
 	if err := guestos.WindowsVMAction(ctx, s.profile, "start"); err != nil {
 		return err
 	}
-	s.setMessage("正在等待 Windows 客机启动并连接账户…")
+	s.setMessage("Ожидание запуска гостевой системы Windows и подключения аккаунта…")
 	bootCtx, finishBoot := context.WithTimeout(ctx, 90*time.Second)
 	err = waitWindowsBoot(bootCtx, 2*time.Second, s.attachWindowsGuestContext)
 	finishBoot()
@@ -320,7 +320,7 @@ func (s *Server) stopWindowsGuest() error {
 	s.closeProjectShares()
 	if s.windowsGuest.Remote() {
 		// The remote broker outlives this controller. Revoke its grant on detach.
-		err := s.revokeNetworkNow("正在停止 Windows 云端环境", false)
+		err := s.revokeNetworkNow("Остановка облачной среды Windows", false)
 		s.mu.Lock()
 		s.windowsState = windowsGuestState{}
 		s.mu.Unlock()
@@ -452,5 +452,5 @@ func (s *Server) windowsCapabilitiesLocked() map[string]any {
 	return map[string]any{"registered": registered, "installed": installed, "available": available, "components": components, "unavailable": unsupported, "network": networkMode, "browser_running": s.ready && s.windowsState.Available && fresh && s.windowsState.Browser.Ready}
 }
 func (s *Server) windowsUnavailable(w http.ResponseWriter) {
-	http.Error(w, "Windows 客机尚未接通此功能", http.StatusNotImplemented)
+	http.Error(w, "Гостевая система Windows ещё не поддерживает эту функцию", http.StatusNotImplemented)
 }

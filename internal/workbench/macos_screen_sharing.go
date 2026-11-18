@@ -23,14 +23,14 @@ import (
 )
 
 var (
-	errScreenSharingNotMacOS    = errors.New("仅 macOS 客机支持打开系统屏幕共享")
-	errScreenSharingNotReady    = errors.New("macOS 客机尚未就绪")
-	errScreenSharingNeedMacHost = errors.New("打开客机屏幕共享需要在这台 Mac 上的 Cage 应用中操作")
-	errScreenSharingNotIsolated = errors.New("客机外网当前已放行或正在检查，已拒绝重新配置屏幕共享。请先在工作台暂停外网，确认网络门槛为关闭后再试。")
-	errScreenSharingGateUnknown = errors.New("无法确认客机网络隔离状态，已拒绝重新配置屏幕共享。请确认环境已启动，再在外网关闭时重试。")
-	errScreenSharingUnreachable = errors.New("无法连接到客机屏幕共享。请在客机「系统设置 → 通用 → 共享」中打开「屏幕共享」，并允许当前普通客机用户访问。macOS 26 仅用命令行启用时，连接可能提示「屏幕共享在 localhost 上不被允许」，需要在系统设置里再手动打开一次。")
-	errScreenSharingBadAction   = errors.New("无效的屏幕共享操作")
-	errScreenSharingEnable      = errors.New("无法重新启用客机屏幕共享服务。请先在工作台暂停外网，再确认客机已安装启用脚本后重试。")
+	errScreenSharingNotMacOS    = errors.New("Открыть системный общий доступ к экрану можно только для гостевой системы macOS")
+	errScreenSharingNotReady    = errors.New("Гостевая система macOS ещё не готова")
+	errScreenSharingNeedMacHost = errors.New("Чтобы открыть общий доступ к экрану гостевой системы, нужно действовать в приложении Cage на этом Mac")
+	errScreenSharingNotIsolated = errors.New("Внешняя сеть гостевой системы сейчас разрешена или проверяется, поэтому перенастройка общего доступа к экрану отклонена. Сначала приостановите внешнюю сеть в рабочей области и убедитесь, что сетевой шлюз закрыт, затем повторите попытку.")
+	errScreenSharingGateUnknown = errors.New("Не удалось подтвердить изоляцию сети гостевой системы, поэтому перенастройка общего доступа к экрану отклонена. Убедитесь, что среда запущена, и повторите попытку при выключенной внешней сети.")
+	errScreenSharingUnreachable = errors.New("Не удалось подключиться к общему доступу к экрану гостевой системы. В гостевой системе откройте «Системные настройки → Основные → Общий доступ» и включите «Общий доступ к экрану», разрешив доступ текущему обычному пользователю гостевой системы. Если в macOS 26 включить его только из командной строки, при подключении может появиться сообщение «Общий доступ к экрану не разрешён на localhost» — тогда включите его вручную ещё раз в системных настройках.")
+	errScreenSharingBadAction   = errors.New("Недопустимая операция общего доступа к экрану")
+	errScreenSharingEnable      = errors.New("Не удалось повторно включить службу общего доступа к экрану гостевой системы. Сначала приостановите внешнюю сеть в рабочей области, убедитесь, что в гостевой системе установлен скрипт включения, и повторите попытку.")
 )
 
 // macOSScreenSharing is the cage-serve-owned SSH local forward to guest 5900.
@@ -137,7 +137,7 @@ func (s *Server) openMacOSScreenSharing(w http.ResponseWriter, r *http.Request) 
 			requestError(w, err)
 			return
 		}
-		status.Summary = "已重新启用客机屏幕共享服务。" + status.Summary
+		status.Summary = "Служба общего доступа к экрану гостевой системы включена повторно. " + status.Summary
 		jsonReply(w, status)
 	case "open":
 		// Daily connect only creates a host-local SSH forward to guest
@@ -170,7 +170,7 @@ func (s *Server) openMacOSScreenSharingURL(url string) error {
 	cmd := exec.Command("/usr/bin/open", url)
 	host.HideCommandWindow(cmd)
 	if err := cmd.Run(); err != nil {
-		return errors.New("无法打开本机「屏幕共享」，请确认系统已安装该应用后重试。")
+		return errors.New("Не удалось открыть «Общий доступ к экрану» на этом компьютере. Убедитесь, что приложение установлено в системе, и повторите попытку.")
 	}
 	return nil
 }
@@ -228,13 +228,13 @@ func (s *Server) evaluateMacOSSetupSharing(ctx context.Context, force bool) macO
 	if err != nil {
 		status = macOSScreenSharingStatus{
 			State:   cage.CheckUnknown,
-			Summary: "暂时无法检查客机屏幕共享：" + err.Error(),
+			Summary: "Пока не удалось проверить общий доступ к экрану гостевой системы: " + err.Error(),
 			Checks: []screenSharingCheck{{
 				ID:       "availability",
-				Title:    "屏幕共享可达性",
+				Title:    "Доступность общего доступа к экрану",
 				State:    cage.CheckUnknown,
 				Evidence: err.Error(),
-				Remedy:   "确认虚拟 Mac 已登录后重试。若仍失败，请先暂停外网，再重新启用屏幕共享服务。",
+				Remedy:   "Убедитесь, что виртуальный Mac выполнил вход, и повторите попытку. Если ошибка повторяется, приостановите внешнюю сеть и включите службу общего доступа к экрану заново.",
 			}},
 		}
 	}
@@ -269,71 +269,71 @@ type screenSharingRFBResult struct {
 }
 
 func assembleScreenSharingStatus(serviceLoaded, portOpen bool, serviceErr error, rfb screenSharingRFBResult, rfbErr error) macOSScreenSharingStatus {
-	service := screenSharingCheck{ID: "service", Title: "屏幕共享服务", State: cage.CheckUnknown, Evidence: "尚未取得服务状态"}
+	service := screenSharingCheck{ID: "service", Title: "Служба общего доступа к экрану", State: cage.CheckUnknown, Evidence: "Состояние службы ещё не получено"}
 	if serviceErr != nil {
-		service.Evidence = "无法确认 com.apple.screensharing 是否已加载：" + serviceErr.Error()
-		service.Remedy = "请先在工作台暂停外网，再重新启用屏幕共享服务。"
+		service.Evidence = "Не удалось определить, загружена ли com.apple.screensharing: " + serviceErr.Error()
+		service.Remedy = "Сначала приостановите внешнюю сеть в рабочей области, затем включите службу общего доступа к экрану заново."
 		if portOpen {
 			service.State = cage.CheckPassed
-			service.Evidence = "未能直接读取服务状态，但客机 5900 端口已在监听，视为服务已启动。"
+			service.Evidence = "Не удалось прочитать состояние службы напрямую, но порт 5900 гостевой системы прослушивается — считаем службу запущенной."
 			service.Remedy = ""
 		}
 	} else if serviceLoaded {
 		service.State = cage.CheckPassed
-		service.Evidence = "已加载 com.apple.screensharing 服务。"
+		service.Evidence = "Служба com.apple.screensharing загружена."
 	} else {
 		service.State = cage.CheckFailed
-		service.Evidence = "未加载 com.apple.screensharing 服务。"
-		service.Remedy = "请先在工作台暂停外网，再点击「重新启用屏幕共享服务」。首次安装会在置备阶段自动启用。"
+		service.Evidence = "Служба com.apple.screensharing не загружена."
+		service.Remedy = "Сначала приостановите внешнюю сеть в рабочей области, затем нажмите «Включить общий доступ к экрану заново». При первой установке он включается автоматически на этапе подготовки."
 	}
 
-	port := screenSharingCheck{ID: "port", Title: "5900 端口监听", State: cage.CheckFailed, Evidence: "客机 127.0.0.1:5900 尚未监听。", Remedy: "请先在工作台暂停外网，再重新启用屏幕共享服务。"}
+	port := screenSharingCheck{ID: "port", Title: "Прослушивание порта 5900", State: cage.CheckFailed, Evidence: "Гостевая система ещё не прослушивает 127.0.0.1:5900.", Remedy: "Сначала приостановите внешнюю сеть в рабочей области, затем включите службу общего доступа к экрану заново."}
 	if portOpen {
 		port.State = cage.CheckPassed
-		port.Evidence = "客机 127.0.0.1:5900 正在监听。"
+		port.Evidence = "Гостевая система прослушивает 127.0.0.1:5900."
 		port.Remedy = ""
 	}
 
-	handshake := screenSharingCheck{ID: "rfb", Title: "RFB 握手", State: cage.CheckUnknown, Evidence: "尚未完成 RFB 握手。"}
-	authorization := screenSharingCheck{ID: "authorization", Title: "系统设置授权", State: cage.CheckUnknown, Evidence: "尚无法自动确认系统设置中的屏幕共享开关。macOS 26 仅用命令行启用时，连接可能提示「屏幕共享在 localhost 上不被允许」。", Remedy: "请在客机「系统设置 → 通用 → 共享」中打开「屏幕共享」，并允许当前普通客机用户访问。"}
+	handshake := screenSharingCheck{ID: "rfb", Title: "Рукопожатие RFB", State: cage.CheckUnknown, Evidence: "Рукопожатие RFB ещё не выполнено."}
+	authorization := screenSharingCheck{ID: "authorization", Title: "Разрешение в системных настройках", State: cage.CheckUnknown, Evidence: "Пока нельзя автоматически подтвердить переключатель общего доступа к экрану в системных настройках. Если в macOS 26 включить его только из командной строки, при подключении может появиться сообщение «Общий доступ к экрану не разрешён на localhost».", Remedy: "В гостевой системе откройте «Системные настройки → Основные → Общий доступ» и включите «Общий доступ к экрану», разрешив доступ текущему обычному пользователю гостевой системы."}
 	authorized := cage.CheckUnknown
 	usable := false
 
 	if rfbErr != nil && !rfb.Handshake {
 		handshake.State = cage.CheckFailed
-		handshake.Evidence = "无法完成 RFB 握手：" + rfbErr.Error()
-		handshake.Remedy = "请在客机「系统设置 → 通用 → 共享」中打开「屏幕共享」。若服务未启动，请先暂停外网再重新启用。"
+		handshake.Evidence = "Не удалось выполнить рукопожатие RFB: " + rfbErr.Error()
+		handshake.Remedy = "В гостевой системе откройте «Системные настройки → Основные → Общий доступ» и включите «Общий доступ к экрану». Если служба не запущена, сначала приостановите внешнюю сеть и включите её заново."
 		if rfb.Unreachable || !portOpen {
-			handshake.Evidence = "尚未连接到客机屏幕共享端口。"
+			handshake.Evidence = "Подключение к порту общего доступа к экрану гостевой системы ещё не установлено."
 		}
 	} else if rfb.Denied {
 		handshake.State = cage.CheckFailed
 		reason := rfb.Reason
 		if reason == "" {
-			reason = "连接在握手后被拒绝"
+			reason = "Соединение отклонено после рукопожатия"
 		}
-		handshake.Evidence = "RFB 握手被拒绝：" + reason
-		handshake.Remedy = "这通常表示尚未在系统设置中授权。请打开「系统设置 → 通用 → 共享」，打开「屏幕共享」，并允许当前普通客机用户访问。"
+		handshake.Evidence = "Рукопожатие RFB отклонено: " + reason
+		handshake.Remedy = "Обычно это означает, что разрешение не выдано в системных настройках. Откройте «Системные настройки → Основные → Общий доступ», включите «Общий доступ к экрану» и разрешите доступ текущему обычному пользователю гостевой системы."
 		authorization.State = cage.CheckFailed
-		authorization.Evidence = "检测到屏幕共享未被允许：" + reason
+		authorization.Evidence = "Обнаружено, что общий доступ к экрану не разрешён: " + reason
 		authorization.Remedy = handshake.Remedy
 		authorized = cage.CheckFailed
 	} else if rfb.Handshake {
 		handshake.State = cage.CheckPassed
-		evidence := "已收到 RFB 握手"
+		evidence := "Получено рукопожатие RFB"
 		if rfb.Greeting != "" {
-			evidence += "（" + strings.TrimSpace(rfb.Greeting) + "）"
+			evidence += " (" + strings.TrimSpace(rfb.Greeting) + ")"
 		}
 		if rfb.Types > 0 {
-			evidence += fmt.Sprintf("，服务端提供 %d 种认证方式。", rfb.Types)
+			evidence += fmt.Sprintf(", сервер предлагает способов аутентификации: %d.", rfb.Types)
 		} else {
-			evidence += "。"
+			evidence += "."
 		}
 		handshake.Evidence = evidence
 		usable = true
 		if rfb.Reason == "" && rfb.Types > 0 {
 			authorization.State = cage.CheckUnknown
-			authorization.Evidence = "RFB 握手已成功，但系统完整性保护下无法直接读取「屏幕共享」开关。若本机客户端仍提示「屏幕共享在 localhost 上不被允许」，请在客机系统设置中再手动打开一次。"
+			authorization.Evidence = "Рукопожатие RFB выполнено успешно, но из-за защиты целостности системы переключатель «Общий доступ к экрану» прочитать напрямую нельзя. Если клиент на этом компьютере по-прежнему сообщает «Общий доступ к экрану не разрешён на localhost», включите его вручную ещё раз в системных настройках гостевой системы."
 		}
 	}
 
@@ -346,19 +346,19 @@ func assembleScreenSharingStatus(serviceLoaded, portOpen bool, serviceErr error,
 
 	checks := []screenSharingCheck{service, port, handshake, authorization}
 	state := cage.CheckFailed
-	summary := "客机屏幕共享尚未可用。"
+	summary := "Общий доступ к экрану гостевой системы пока недоступен."
 	if usable {
 		state = cage.CheckPassed
-		summary = "客机屏幕共享服务已启用，并且 RFB 握手成功。"
+		summary = "Служба общего доступа к экрану гостевой системы включена, рукопожатие RFB выполнено успешно."
 		if authorized == cage.CheckUnknown {
-			summary += "请仍在「系统设置 → 通用 → 共享」中确认已打开「屏幕共享」，以免本机客户端提示「不被允许」。"
+			summary += "Всё же проверьте в «Системные настройки → Основные → Общий доступ», что «Общий доступ к экрану» включён, иначе клиент на этом компьютере может сообщить, что доступ не разрешён."
 		}
 	} else if authorized == cage.CheckFailed {
-		summary = "屏幕共享服务已响应，但系统尚未允许连接。请在「系统设置 → 通用 → 共享」中打开「屏幕共享」。"
+		summary = "Служба общего доступа к экрану отвечает, но система ещё не разрешает подключение. Откройте «Системные настройки → Основные → Общий доступ» и включите «Общий доступ к экрану»."
 		state = cage.CheckFailed
 	} else if service.State == cage.CheckUnknown && port.State != cage.CheckPassed && handshake.State != cage.CheckPassed {
 		state = cage.CheckUnknown
-		summary = "暂时无法确认客机屏幕共享状态。"
+		summary = "Пока не удалось определить состояние общего доступа к экрану гостевой системы."
 	}
 	return macOSScreenSharingStatus{Usable: usable, State: state, Summary: summary, Authorized: authorized, Checks: checks}
 }
@@ -473,7 +473,7 @@ func readScreenSharingRFB(ctx context.Context, conn io.ReadWriter) (screenSharin
 		if err != nil {
 			result.Handshake = true
 			result.Denied = true
-			result.Reason = "版本交换后连接已关闭，可能尚未在系统设置中授权"
+			result.Reason = "Соединение закрыто после обмена версиями; возможно, разрешение не выдано в системных настройках"
 			return result, nil
 		}
 	}
@@ -482,7 +482,7 @@ func readScreenSharingRFB(ctx context.Context, conn io.ReadWriter) (screenSharin
 		if err := binary.Read(reader, binary.BigEndian, &length); err != nil {
 			result.Handshake = true
 			result.Denied = true
-			result.Reason = "服务器拒绝连接且未返回原因"
+			result.Reason = "Сервер отклонил подключение, не указав причину"
 			return result, nil
 		}
 		if length > 2048 {
@@ -525,7 +525,7 @@ func (s *Server) ensureMacOSScreenSharingTunnel(ctx context.Context) (int, error
 	session.stopLocked()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return 0, errors.New("无法在本机环回地址上分配屏幕共享端口")
+		return 0, errors.New("Не удалось выделить порт общего доступа к экрану на локальном адресе обратной связи")
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	if err := ln.Close(); err != nil {
@@ -542,7 +542,7 @@ func (s *Server) ensureMacOSScreenSharingTunnel(ctx context.Context) (int, error
 	host.HideCommandWindow(cmd)
 	if cmd.Err != nil {
 		cancel()
-		return 0, errors.New("无法准备客机 SSH 转发")
+		return 0, errors.New("Не удалось подготовить SSH-перенаправление в гостевую систему")
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -551,7 +551,7 @@ func (s *Server) ensureMacOSScreenSharingTunnel(ctx context.Context) (int, error
 	}
 	if err := cmd.Start(); err != nil {
 		cancel()
-		return 0, errors.New("无法启动客机 SSH 转发")
+		return 0, errors.New("Не удалось запустить SSH-перенаправление в гостевую систему")
 	}
 	// OpenSSH emits the marker from its fixed LocalCommand only after it
 	// authenticates the guest and binds the requested port. A different

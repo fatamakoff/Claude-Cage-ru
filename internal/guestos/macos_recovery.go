@@ -38,7 +38,7 @@ func (r MacOSInstallRecovery) Validate() error {
 		!ValidMacOSAccountName(r.User) || len(r.MachineID) != 64 ||
 		strings.Trim(r.MachineID, "0123456789abcdef") != "" ||
 		!validMacOSInstallPhase(r.Phase) || len(r.LastError) > 4096 {
-		return errors.New("macOS 安装恢复记录无效")
+		return errors.New("Неверная запись восстановления установки macOS")
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func validateMacOSInstallDisk(profile string) error {
 		return err
 	}
 	if !info.Mode().IsRegular() || info.Size() == 0 {
-		return errors.New("macOS 客机系统盘尚未就绪")
+		return errors.New("Системный диск гостевой системы macOS ещё не готов")
 	}
 	return nil
 }
@@ -112,7 +112,7 @@ func LoadMacOSInstallRecovery(profile string) (*MacOSInstallRecovery, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > 8192 {
-		return nil, errors.New("macOS 安装恢复记录无法读取")
+		return nil, errors.New("Запись восстановления установки macOS не читается")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -122,7 +122,7 @@ func LoadMacOSInstallRecovery(profile string) (*MacOSInstallRecovery, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&recovery) != nil || decoder.Decode(new(any)) != io.EOF {
-		return nil, errors.New("macOS 安装恢复记录格式无效")
+		return nil, errors.New("Неверный формат записи восстановления установки macOS")
 	}
 	if err := recovery.Validate(); err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func LoadMacOSInstallRecovery(profile string) (*MacOSInstallRecovery, error) {
 		return nil, err
 	}
 	if install == nil || install.System != MacOS || install.ID != recovery.InstallationID {
-		return nil, errors.New("macOS 安装恢复记录与 pending 安装不匹配")
+		return nil, errors.New("Запись восстановления установки macOS не соответствует ожидающей установке")
 	}
 	machineID, err := macMachineID(profile)
 	if err != nil {
@@ -142,7 +142,7 @@ func LoadMacOSInstallRecovery(profile string) (*MacOSInstallRecovery, error) {
 		return nil, err
 	}
 	if machineID != recovery.MachineID {
-		return nil, errors.New("macOS 安装恢复记录与当前客机不匹配")
+		return nil, errors.New("Запись восстановления установки macOS не соответствует текущей гостевой системе")
 	}
 	return &recovery, nil
 }
@@ -153,10 +153,10 @@ func CreateMacOSInstallRecovery(profile, user string, id uuid.UUID) error {
 		return err
 	}
 	if install == nil || install.System != MacOS || install.ID != id {
-		return errors.New("macOS 安装恢复与当前 pending 安装不匹配")
+		return errors.New("Восстановление установки macOS не соответствует текущей ожидающей установке")
 	}
 	if !ValidMacOSAccountName(user) {
-		return errors.New("macOS 安装恢复账户无效")
+		return errors.New("Неверный аккаунт восстановления установки macOS")
 	}
 	machineID, err := macMachineID(profile)
 	if err != nil {
@@ -170,28 +170,28 @@ func CreateMacOSInstallRecovery(profile, user string, id uuid.UUID) error {
 		if current.InstallationID == id && current.User == user && current.MachineID == machineID {
 			return nil
 		}
-		return errors.New("已有其他 macOS 安装恢复记录")
+		return errors.New("Уже существует другая запись восстановления установки macOS")
 	}
 	return writeMacOSInstallRecovery(profile, recovery)
 }
 
 func SetMacOSInstallRecoveryPhase(profile string, id uuid.UUID, phase string, cause error) error {
 	if !validMacOSInstallPhase(phase) {
-		return errors.New("macOS 安装恢复阶段无效")
+		return errors.New("Неверная стадия восстановления установки macOS")
 	}
 	recovery, err := LoadMacOSInstallRecovery(profile)
 	if err != nil {
 		return err
 	}
 	if recovery == nil || recovery.InstallationID != id {
-		return errors.New("macOS 安装恢复记录已变化")
+		return errors.New("Запись восстановления установки macOS изменилась")
 	}
 	allowed := phase == MacOSInstallAwaitingGUIAuthorization || phase == recovery.Phase ||
 		recovery.Phase == MacOSInstallAwaitingGUIAuthorization && phase == MacOSInstallComponentsVerified ||
 		recovery.Phase == MacOSInstallComponentsVerified && phase == MacOSInstallAccountVerified ||
 		recovery.Phase == MacOSInstallAccountVerified && phase == MacOSInstallServicesPrepared
 	if !allowed {
-		return errors.New("macOS 安装恢复阶段顺序无效")
+		return errors.New("Неверный порядок стадий восстановления установки macOS")
 	}
 	recovery.Phase = phase
 	recovery.LastError = ""
@@ -207,7 +207,7 @@ func RemoveMacOSInstallRecovery(profile string, id uuid.UUID) error {
 		return err
 	}
 	if recovery == nil || recovery.InstallationID != id {
-		return errors.New("macOS 安装恢复记录已变化")
+		return errors.New("Запись восстановления установки macOS изменилась")
 	}
 	return os.Remove(filepath.Join(profile, macOSInstallRecoveryRecord))
 }

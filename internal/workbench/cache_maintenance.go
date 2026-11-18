@@ -74,7 +74,7 @@ func (s *Server) cacheMaintenanceRun() (string, bool) {
 
 func (care *cacheMaintenance) selection(id string, ids []string, run string, now time.Time) (map[string]any, error) {
 	if id == "" || id != care.plan.PlanID || run != care.run || now.Sub(care.created) > 10*time.Minute || len(ids) == 0 || len(ids) > len(care.plan.Items) {
-		return nil, errors.New("清理预览已失效，请重新盘点并选择缓存")
+		return nil, errors.New("Предпросмотр очистки устарел. Повторите инвентаризацию и выберите кеш")
 	}
 	items := make([]map[string]string, 0, len(ids))
 	seen := make(map[string]bool)
@@ -87,7 +87,7 @@ func (care *cacheMaintenance) selection(id string, ids []string, run string, now
 			}
 		}
 		if selected == nil || selected.State != "ready" || selected.Fingerprint == "" || seen[id] {
-			return nil, errors.New("缓存选择不属于当前可清理清单，请重新盘点")
+			return nil, errors.New("Выбранный кеш не входит в текущий список очистки. Повторите инвентаризацию")
 		}
 		seen[id] = true
 		items = append(items, map[string]string{"id": id, "fingerprint": selected.Fingerprint})
@@ -104,22 +104,22 @@ func (s *Server) cacheMaintenanceAction(care *cacheMaintenance, action string, w
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&input) != nil || decoder.Decode(new(any)) != io.EOF {
-		http.Error(w, "缓存操作请求无效", http.StatusBadRequest)
+		http.Error(w, "Неверный запрос операции с кешем", http.StatusBadRequest)
 		return
 	}
 	if !s.op.TryLock() {
-		http.Error(w, "环境正在执行其他操作，请稍后重试", http.StatusConflict)
+		http.Error(w, "Среда выполняет другую операцию. Повторите позже", http.StatusConflict)
 		return
 	}
 	defer s.op.Unlock()
 	if !care.mu.TryLock() {
-		http.Error(w, "缓存维护正在进行，请稍后重试", http.StatusConflict)
+		http.Error(w, "Обслуживание кеша уже выполняется. Повторите позже", http.StatusConflict)
 		return
 	}
 	defer care.mu.Unlock()
 	run, ready := s.cacheMaintenanceRun()
 	if !ready {
-		http.Error(w, "请先启动当前环境；缓存维护只处理该环境内的数据", http.StatusConflict)
+		http.Error(w, "Сначала запустите текущую среду; обслуживание кеша работает только с её данными", http.StatusConflict)
 		return
 	}
 	request := map[string]any{"action": action}
@@ -137,7 +137,7 @@ func (s *Server) cacheMaintenanceAction(care *cacheMaintenance, action string, w
 		care.plan.PlanID = ""
 	} else if action == "restore" {
 		if len(input.Batch) != 32 || strings.Trim(input.Batch, "0123456789abcdef") != "" {
-			http.Error(w, "恢复批次无效", http.StatusBadRequest)
+			http.Error(w, "Неверный пакет восстановления", http.StatusBadRequest)
 			return
 		}
 		request["batch"] = input.Batch
@@ -147,7 +147,7 @@ func (s *Server) cacheMaintenanceAction(care *cacheMaintenance, action string, w
 	defer cancel()
 	data, err := care.execute(ctx, request)
 	if err != nil {
-		requestError(w, errors.New("缓存操作未返回完整结果，请重新盘点；原数据与恢复副本均保留"))
+		requestError(w, errors.New("Операция с кешем не вернула полный результат. Повторите инвентаризацию; исходные данные и копия для восстановления сохранены"))
 		return
 	}
 	var status struct {
@@ -155,13 +155,13 @@ func (s *Server) cacheMaintenanceAction(care *cacheMaintenance, action string, w
 		Error   string `json:"error"`
 	}
 	if json.Unmarshal(data, &status) != nil || status.Version != 1 || status.Error != "" {
-		http.Error(w, "缓存状态已变化或无法完整核对，请重新盘点；已有数据与恢复副本均保留", http.StatusConflict)
+		http.Error(w, "Состояние кеша изменилось или проверено не полностью. Повторите инвентаризацию; существующие данные и копия для восстановления сохранены", http.StatusConflict)
 		return
 	}
 	if action == "inspect" {
 		var inventory cacheInventory
 		if json.Unmarshal(data, &inventory) != nil || inventory.Scope == "" || len(inventory.Items) > 110 {
-			requestError(w, errors.New("缓存盘点返回无效结果"))
+			requestError(w, errors.New("Инвентаризация кеша вернула неверный результат"))
 			return
 		}
 		inventory.PlanID = randomToken()

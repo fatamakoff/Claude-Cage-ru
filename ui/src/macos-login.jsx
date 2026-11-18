@@ -146,7 +146,7 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
         closeSession(r.session, endpoint, maintenance);
         return;
       }
-      if (!r.session) { setRecovery(r.recovery || ""); throw new Error(r.error || "暂时无法打开客机登录界面"); }
+      if (!r.session) { setRecovery(r.recovery || ""); throw new Error(r.error || "Пока не удалось открыть экран входа гостевой системы"); }
       setAdministrator(r.administrator || "");
       next.session = r.session;
       setSession(r.session);
@@ -224,7 +224,7 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
         if (r.closed) { setRecovery(r.recovery || ""); end(r.error || ""); onSessionClosed?.(); return; }
         if (r.image) {
           if (maintenance && (!r.geometry || !Array.isArray(r.region) || r.region.length !== 4 || !r.region.every(Number.isInteger)))
-            throw new Error("客机维护画面缺少窗口定位，请更新组件后重试");
+            throw new Error("На экране обслуживания гостевой системы нет координат окна; обновите компоненты и повторите");
           setFrameTarget(maintenance ? { geometry: r.geometry, region: r.region } : null);
           setFrame(`data:${r.mime === "image/jpeg" ? "image/jpeg" : "image/png"};base64,${r.image}`);
           setFrameError("");
@@ -243,7 +243,7 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
     const owner = lease.current;
     if (!owner?.session) return;
     const geometry = shown.current.geometry;
-    if (maintenance && !geometry) { setMessage("请等待授权窗口画面后再操作"); return; }
+    if (maintenance && !geometry) { setMessage("Сначала дождитесь изображения окна авторизации"); return; }
     chain.current = chain.current.then(async () => {
       if (lease.current !== owner) return;
       const r = await api(endpoint, { action, session: owner.session, ...scope, ...(maintenance ? { geometry } : {}), ...data });
@@ -305,12 +305,12 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
 
   return <>
     <button type="button" ref={opener} disabled={disabled || opened || opening} onClick={open}
-      title={!initialSetup && !maintenance ? "仅用于客机登录或解锁，已登录后请直接使用工作台应用。" : undefined}>{opening ? "正在连接客机画面…" : label || (initialSetup ? installRecovery ? "打开恢复画面" : "打开客机系统设置" : maintenance ? "打开客机授权设置" : "查看客机登录界面")}</button>
+      title={!initialSetup && !maintenance ? "Только для входа или разблокировки гостевой системы; после входа используйте приложение рабочей области." : undefined}>{opening ? "Подключение к экрану гостевой системы…" : label || (initialSetup ? installRecovery ? "Открыть экран восстановления" : "Открыть настройки гостевой системы" : maintenance ? "Открыть настройки авторизации гостевой системы" : "Показать экран входа гостевой системы")}</button>
     {!opened && message && <span role="status">{message}</span>}
     {!opened && ["environment-update", "environment-restart"].includes(recovery) && onSettings &&
-      <button type="button" onClick={onSettings}>{installRecovery ? "查看日志与诊断" : recovery === "environment-update" ? "查看环境组件" : "打开环境设置"}</button>}
+      <button type="button" onClick={onSettings}>{installRecovery ? "Журнал и диагностика" : recovery === "environment-update" ? "Компоненты среды" : "Открыть настройки среды"}</button>}
     {opened && createPortal(
-      <div className="mac-login-fullscreen" data-mode={initialSetup ? "setup" : maintenance ? "maintenance" : "login"} role="dialog" aria-modal="true" aria-label={initialSetup ? installRecovery ? "恢复安装虚拟 Mac" : "首次设置虚拟 Mac" : maintenance ? "恢复客机系统权限" : "登录虚拟 Mac"}
+      <div className="mac-login-fullscreen" data-mode={initialSetup ? "setup" : maintenance ? "maintenance" : "login"} role="dialog" aria-modal="true" aria-label={initialSetup ? installRecovery ? "Восстановление установки виртуального Mac" : "Первичная настройка виртуального Mac" : maintenance ? "Восстановление прав гостевой системы" : "Вход в виртуальный Mac"}
         onKeyDownCapture={(e) => {
           if (e.key === "F6") {
             e.preventDefault();
@@ -325,15 +325,15 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
         }}>
         <div className="mac-login-panel">
         <header className="mac-login-heading">
-          <h2>{initialSetup ? installRecovery ? "恢复安装画面" : "虚拟 Mac 的系统设置" : maintenance ? "恢复客机系统权限" : "登录 macOS 客机"}</h2>
-          <p>{initialSetup ? installRecovery ? "先登录安装时创建的客机普通账户，再按下方提示完成安装器授权，Cage 会自动检查。可以随时返回恢复指引。" : "按下方提示完成当前授权，Cage 会自动检查。可以随时返回设置指引继续处理。" : maintenance ? "在当前系统设置窗口中完成授权。切换到其他客机应用或锁定后，画面会结束。" : "输入客机账户密码，按回车登录。"}</p>
+          <h2>{initialSetup ? installRecovery ? "Экран восстановления установки" : "Настройки виртуального Mac" : maintenance ? "Восстановление прав гостевой системы" : "Вход в гостевую систему macOS"}</h2>
+          <p>{initialSetup ? installRecovery ? "Сначала войдите в обычный аккаунт гостевой системы, созданный при установке, затем выполните авторизацию установщика по подсказкам ниже: Cage проверит всё сам. В любой момент можно вернуться к инструкции по восстановлению." : "Выполните текущую авторизацию по подсказкам ниже, Cage проверит всё сам. В любой момент можно вернуться к инструкции по настройке и продолжить." : maintenance ? "Выполните авторизацию в текущем окне настроек системы. При переключении на другое приложение гостевой системы или блокировке показ завершится." : "Введите пароль аккаунта гостевой системы и нажмите Enter."}</p>
         </header>
-        <div className="mac-login-tools" role="toolbar" aria-label="画面工具">
-          <button ref={back} onClick={() => end()}><ArrowLeft size={16} aria-hidden="true" />{initialSetup ? installRecovery ? "返回恢复指引" : "返回设置指引" : "返回工作台"}</button>
-          <button aria-pressed={!zoomed} onClick={() => changeZoom(false)}><Maximize size={16} aria-hidden="true" />{initialSetup || maintenance ? "适配" : "完整画面"}</button>
-          <button aria-pressed={zoomed} onClick={() => changeZoom(true)}><ZoomIn size={16} aria-hidden="true" />{initialSetup || maintenance ? "放大" : "登录区域"}</button>
+        <div className="mac-login-tools" role="toolbar" aria-label="Инструменты экрана">
+          <button ref={back} onClick={() => end()}><ArrowLeft size={16} aria-hidden="true" />{initialSetup ? installRecovery ? "К инструкции по восстановлению" : "К инструкции по настройке" : "Назад в рабочую область"}</button>
+          <button aria-pressed={!zoomed} onClick={() => changeZoom(false)}><Maximize size={16} aria-hidden="true" />{initialSetup || maintenance ? "По размеру" : "Весь экран"}</button>
+          <button aria-pressed={zoomed} onClick={() => changeZoom(true)}><ZoomIn size={16} aria-hidden="true" />{initialSetup || maintenance ? "Увеличить" : "Область входа"}</button>
           {initialSetup && setupActions}
-          {initialSetup && managedCredential && <button disabled={!session} onClick={() => enqueue("fill-password",{})}>填写授权密码</button>}
+          {initialSetup && managedCredential && <button disabled={!session} onClick={() => enqueue("fill-password",{})}>Ввести пароль авторизации</button>}
           {!maintenance && (!initialSetup || managedCredential) && <button onClick={async () => {
             const owner = lease.current;
             try {
@@ -342,22 +342,22 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
               setAuthorizationPassword(result.password); setMessage("");
             }
             catch (e) { if (lease.current === owner) setMessage(e.message); }
-          }}>{initialSetup ? "查看授权密码" : "查看客机密码"}</button>}
-          {authorizationPassword && <span className="mac-login-password">{authorizationPassword}<button onClick={() => setAuthorizationPassword("")}>隐藏</button></span>}
+          }}>{initialSetup ? "Показать пароль авторизации" : "Показать пароль гостевой системы"}</button>}
+          {authorizationPassword && <span className="mac-login-password">{authorizationPassword}<button onClick={() => setAuthorizationPassword("")}>Скрыть</button></span>}
         </div>
         {maintenance && <div className="mac-setup-hint">
-          {maintenance === "projects" && <p>Cage 会直接打开「文件系统扩展」面板。打开 macFUSE 和 macFUSE (local) 两个开关，Cage 会自动检查并重新连接项目。</p>}
-          {maintenance === "sharing" && <p>Cage 会打开「系统设置 → 通用 → 共享」。请打开「屏幕共享」，并允许当前普通客机用户访问。仅在客机外网关闭时可以打开此设置。macOS 26 仅命令行启用后，仍需在此再手动打开一次，否则连接可能提示「屏幕共享在 localhost 上不被允许」。</p>}
-          {administrator && <p>系统要求管理员时，用户名填写 {administrator}。选中系统授权窗口的密码框后，点击「填写管理员密码」，再由你确认授权。</p>}
-          {administrator && <button type="button" onClick={() => enqueue("fill-password", {})}>填写管理员密码</button>}
+          {maintenance === "projects" && <p>Cage откроет панель «Расширения файловой системы». Включите переключатели macFUSE и macFUSE (local), Cage проверит и переподключит проекты автоматически.</p>}
+          {maintenance === "sharing" && <p>Cage откроет «Системные настройки → Основные → Общий доступ». Включите «Общий доступ к экрану» и разрешите доступ текущему обычному пользователю гостевой системы. Открыть эту настройку можно только при отключённом интернете гостевой системы. В macOS 26 после включения из командной строки нужно ещё раз включить её вручную здесь, иначе при подключении может появиться сообщение «Общий доступ к экрану на localhost не разрешён».</p>}
+          {administrator && <p>Если система требует администратора, укажите имя пользователя {administrator}. Выделите поле пароля в окне авторизации системы, нажмите «Ввести пароль администратора», затем подтвердите авторизацию сами.</p>}
+          {administrator && <button type="button" onClick={() => enqueue("fill-password", {})}>Ввести пароль администратора</button>}
         </div>}
         {initialSetup && setupHint && <div className="mac-setup-hint">
           <p>{setupHint}</p>
-          <p role={setupError ? "alert" : "status"}>{setupStatus} {installRecovery ? "点击「返回恢复指引」可回到继续安装的指引。" : "查看完整步骤或进入工作台时，点击「返回设置指引」。"}</p>
+          <p role={setupError ? "alert" : "status"}>{setupStatus} {installRecovery ? "Кнопка «К инструкции по восстановлению» вернёт к инструкции по продолжению установки." : "Чтобы увидеть все шаги или перейти в рабочую область, нажмите «К инструкции по настройке»."}</p>
         </div>}
         <input ref={keyboard} className="mac-login-keyboard" type="text" autoComplete="off" autoCapitalize="none"
           autoCorrect="off" spellCheck={false}
-          aria-label="客机登录键盘。按 F6 切换工具栏，按 Shift 加 Escape 返回工作台。"
+          aria-label="Клавиатура входа гостевой системы. F6 переключает панель инструментов, Shift+Escape возвращает в рабочую область."
           onKeyDown={guestKey}
           onBeforeInput={(e) => e.preventDefault()}
           onInput={(e) => { e.currentTarget.value = ""; }}
@@ -365,7 +365,7 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
             e.preventDefault();
             const text = e.clipboardData.getData("text/plain");
             if (text.length > 256 || [...text].some((c) => !charKeys[c])) {
-              setMessage("请用键盘输入该密码。");
+              setMessage("Введите этот пароль с клавиатуры.");
               return;
             }
             for (const c of text) {
@@ -397,7 +397,7 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
           {frame && <div className="mac-login-canvas" style={{
             width: Math.max(size.width, imageWidth), height: Math.max(size.height, imageHeight),
           }}>
-            <img ref={imageRef} key={maintenance ? frameTarget?.geometry : undefined} alt={initialSetup ? installRecovery ? "Apple 客机恢复安装画面" : "Apple 客机首次系统设置" : maintenance ? "客机系统设置或授权窗口" : "Apple 客机登录屏幕"} draggable={false} src={frame}
+            <img ref={imageRef} key={maintenance ? frameTarget?.geometry : undefined} alt={initialSetup ? installRecovery ? "Экран восстановления установки гостевой системы Apple" : "Первичная настройка гостевой системы Apple" : maintenance ? "Окно настроек или авторизации гостевой системы" : "Экран входа гостевой системы Apple"} draggable={false} src={frame}
               style={{ width: imageWidth, height: imageHeight }}
               onLoad={(e) => {
                 if (e.currentTarget.naturalHeight) setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight);
@@ -406,9 +406,9 @@ export function MacOSLogin({ disabled, initialSetup = false, installRecovery = f
           </div>}
         </div>
         {(visibleMessage || !frame) && <p className="mac-login-status" role={visibleMessage ? "alert" : "status"}>
-          {visibleMessage || (initialSetup ? installRecovery ? "正在读取恢复安装画面…" : "正在读取客机首次设置画面…" : maintenance ? "正在确认系统授权窗口…" : "正在确认客机登录画面…")}
+          {visibleMessage || (initialSetup ? installRecovery ? "Чтение экрана восстановления установки…" : "Чтение экрана первичной настройки гостевой системы…" : maintenance ? "Определение окна авторизации системы…" : "Определение экрана входа гостевой системы…")}
         </p>}
-        {!initialSetup && !maintenance && <p className="mac-login-help">拖动画面可查看其他账户或提示</p>}
+        {!initialSetup && !maintenance && <p className="mac-login-help">Перетащите изображение, чтобы увидеть другие аккаунты или подсказки</p>}
         </div>
       </div>, document.body)}
   </>;

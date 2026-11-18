@@ -34,21 +34,21 @@ export function projectGroups(status) {
 
 export function projectName(path, groups = []) {
   if (clientMount.test(path)) {
-    try { return sessionStorage.getItem(path) || "本机共享项目"; }
-    catch { return "本机共享项目"; }
+    try { return sessionStorage.getItem(path) || "Общий локальный проект"; }
+    catch { return "Общий локальный проект"; }
   }
   const group = groups.find(item => item.workspace === path || item.folders.includes(path));
   if (group?.name) return group.name;
-  return folderName(path) || "新项目";
+  return folderName(path) || "Новый проект";
 }
 
 export function tabName(tab, saved, project) {
-  return (tab.incognito ? "无痕 · " : "") + (
+  return (tab.incognito ? "Инкогнито · " : "") + (
     saved[tab.id]?.title ||
     (tab.kind === "editor"
-      ? `文件 · ${tab.workspace ? projectName(tab.workspace) : project}`
+      ? `Файл · ${tab.workspace ? projectName(tab.workspace) : project}`
       : tab.title) ||
-    "新标签页"
+    "Новая вкладка"
   );
 }
 

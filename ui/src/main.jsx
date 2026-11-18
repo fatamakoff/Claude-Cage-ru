@@ -126,11 +126,11 @@ function App() {
   // Keep feedback continuous until polling observes the accepted start job.
   const clientStatus = serverStatus && { ...serverStatus, keyboard: clientKeyboard(serverStatus.keyboard) };
   const status = clientStatus && startRequest
-    ? { ...clientStatus, job: { running: true, kind: "start", message: "正在启动 Cage 环境…" } }
+    ? { ...clientStatus, job: { running: true, kind: "start", message: "Запуск среды Cage…" } }
     : clientStatus;
   const system = status?.guest_system || account?.guest_system;
   const macGuest = system === "macos";
-  const nativeGuestLabel = {macos: "macOS", "windows-11": "Windows", "windows-remote": "Windows 云端"}[system];
+  const nativeGuestLabel = {macos: "macOS", "windows-11": "Windows", "windows-remote": "Windows в облаке"}[system];
   const { active } = layout;
   const setActive = id => setLayout(previous => focusTab(previous, id));
   const workspaceBox = useRef(null);
@@ -230,8 +230,8 @@ function App() {
       } catch {
         if (!cancelled) {
           setToast(tabs.some(tab => [leftId, rightId].includes(tab.id) && tab.incognito)
-            ? "无痕标签可与终端分屏；两个网页分屏目前仅支持普通标签。"
-            : "无法调整浏览器分屏。请确认环境组件已更新，两个网页属于同一浏览器配置，且客机 Chromium 为 155 或更高版本。");
+            ? "Приватную вкладку можно разделить с терминалом; разделение двух веб-страниц пока поддерживается только для обычных вкладок."
+            : "Не удалось изменить разделение браузера. Убедитесь, что компоненты среды обновлены, обе веб-страницы относятся к одной конфигурации браузера, а Chromium гостевой системы версии 155 или выше.");
           setLayout(previous => ({ active: previous.active }));
         }
       }
@@ -275,25 +275,25 @@ function App() {
     terminal && !showHome ? current.workspace : workspace;
   const setupProxy = !nativeGuestLabel && needsProxySetup(settings, status, proxy);
   const network = connectionError
-    ? { mode: "unknown", label: "外网状态待确认" }
+    ? { mode: "unknown", label: "Статус внешней сети не подтверждён" }
     : networkState(status);
   const runtimeLabel = connectionError
-    ? "连接中断"
+    ? "Соединение прервано"
     : busy
       ? network.mode === "checking" || status?.job?.kind === "safety"
-        ? "检查中"
+        ? "Проверка"
         : status?.job?.kind === "stop"
-          ? "停止中"
+          ? "Остановка"
           : running
-            ? "应用中"
-            : "启动中"
+            ? "Применение"
+            : "Запуск"
       : status?.ready
         ? network.mode === "open"
-          ? "运行中"
-          : "离线可用"
+          ? "Работает"
+          : "Доступно офлайн"
         : running
-          ? status?.environment_update_required ? "环境待更新" : "浏览器待恢复"
-          : "已停止";
+          ? status?.environment_update_required ? "Среда требует обновления" : "Браузер требует восстановления"
+          : "Остановлено";
   const notify = (text) => setToast(text);
   // A Linux environment keeps what it learned about project files for a while.
   const projectFilesCached = settings?.project_file_cache === true &&
@@ -302,7 +302,7 @@ function App() {
     setProjectRefreshing(true);
     try {
       await api("/projects/refresh", {});
-      setToast("项目文件已刷新");
+      setToast("Файлы проекта обновлены");
     } catch (error) {
       setToast(error.message);
     } finally {
@@ -411,7 +411,7 @@ function App() {
     incognito = Boolean(current?.incognito),
   ) => {
     if (!browserAvailable) {
-      notify("此 Windows 云端环境的浏览器尚未接通。当前可使用隔离 PowerShell 终端。");
+      notify("Браузер этой среды Windows в облаке ещё не подключён. Сейчас доступен изолированный терминал PowerShell.");
       return null;
     }
     setTailnetLogin(null);
@@ -513,13 +513,13 @@ function App() {
     sessionOpenRequest.current = request;
     setOpeningSession(session.id);
     setSessionOpenError(null);
-    const timer = setTimeout(() => controller.abort(new Error("打开会话超时，历史已保留。请重新打开；若仍失败，请在设置中导出诊断包。")), 60000);
+    const timer = setTimeout(() => controller.abort(new Error("Истекло время открытия сессии, история сохранена. Откройте сессию снова; если не получится, экспортируйте диагностический пакет в настройках.")), 60000);
     try {
       const view = await api("/cli/sessions/" + session.id + "/open", {}, undefined, {}, { signal: controller.signal });
       const terminals = await api("/terminals", undefined, undefined, {}, { signal: controller.signal });
       if (sessionOpenRequest.current !== request) return;
       const terminal = terminals.find(item => item.id === view.desktop_terminal_id && item.cli_session_id === session.id);
-      if (!terminal) throw new Error("终端状态已变化，请重新打开会话");
+      if (!terminal) throw new Error("Состояние терминала изменилось, откройте сессию снова");
       showTerminal(terminal);
       sessionsChanged();
     } catch (error) {
@@ -536,7 +536,7 @@ function App() {
     }
   };
   const archiveSession = async (session, anchor) => {
-    await confirm({title:"归档这段会话？", body:"归档会关闭关联终端。历史将保留，可从设置中的已归档会话恢复。", confirm:"归档会话", pendingLabel:"正在归档…", anchor,
+    await confirm({title:"Архивировать эту сессию?", body:"Архивация закроет связанный терминал. История сохранится, её можно восстановить из архивированных сессий в настройках.", confirm:"Архивировать сессию", pendingLabel:"Архивирование…", anchor,
       submit: async () => {
         await api("/cli/sessions/" + session.id + "/archive", {});
         setTabs(list => list.filter(tab => tab.cli_session_id !== session.id));
@@ -561,7 +561,7 @@ function App() {
   );
   const openEditor = async (path = workspace) => {
     if (!browserAvailable || !editorAvailable) {
-      notify("此 Windows 云端环境的文件编辑器尚未接通。当前可在隔离 PowerShell 中操作文件。");
+      notify("Редактор файлов этой среды Windows в облаке ещё не подключён. Файлами можно работать в изолированном PowerShell.");
       return;
     }
     if (!path) { setProjectDialog({}); return; }
@@ -582,7 +582,7 @@ function App() {
                 kind: "editor",
                 workspace: path,
                 url: `http://127.0.0.1:18080/?folder=${encodeURIComponent(path)}`,
-                title: "文件编辑器",
+                title: "Редактор файлов",
               },
             ],
       );
@@ -596,9 +596,9 @@ function App() {
       if (
         !tab.closed &&
         !(await confirm({
-          title: "关闭这个终端会话？",
-          body: "该终端中的交互命令可能被中断。网页和其他终端不受影响。",
-          confirm: "关闭终端",
+          title: "Закрыть эту сессию терминала?",
+          body: "Интерактивные команды в этом терминале могут быть прерваны. Веб-страницы и другие терминалы не пострадают.",
+          confirm: "Закрыть терминал",
         }))
       )
         return;
@@ -612,9 +612,9 @@ function App() {
       if (
         tab.kind === "editor" &&
         !(await confirm({
-          title: "关闭文件编辑器？",
-          body: "请先保存未完成的修改。文件仍保留在共享项目中。",
-          confirm: "关闭编辑器",
+          title: "Закрыть редактор файлов?",
+          body: "Сначала сохраните незавершённые изменения. Файлы останутся в общем проекте.",
+          confirm: "Закрыть редактор",
         }))
       )
         return;
@@ -652,7 +652,7 @@ function App() {
       const url = normalizeURL(address);
       if (network.mode !== "open" && !isGuestLocalURL(url)) {
         setSafetyOpen(true);
-        notify("请先完成关键检查，再访问外部网站。");
+        notify("Сначала завершите ключевую проверку, затем открывайте внешние сайты.");
         return;
       }
       await action("/browser/navigate", { id, url });
@@ -664,9 +664,9 @@ function App() {
   const stop = async () => {
     if (
       await confirm({
-        title: setupProgress ? "停止安装环境？" : "停止当前环境？",
-        body: setupProgress ? "当前安装任务会停止。下次启动环境时可以继续安装。" : "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。",
-        confirm: setupProgress ? "停止安装" : "停止环境",
+        title: setupProgress ? "Остановить установку среды?" : "Остановить текущую среду?",
+        body: setupProgress ? "Текущая задача установки остановится. При следующем запуске среду можно доустановить." : "Сначала сохраните файлы. Текущая сессия терминала завершится, вход в браузере и файлы проекта сохранятся.",
+        confirm: setupProgress ? "Остановить установку" : "Остановить среду",
       })
     )
       await action("/stop");
@@ -732,7 +732,7 @@ function App() {
               if (live) setBrowserError("");
               return result;
             }).catch(error => {
-              if (live) setBrowserError(next.guest_system === "macos" ? "请在环境设置中同步 macOS 组件，并确认已登录客机图形账户。" : error.message);
+              if (live) setBrowserError(next.guest_system === "macos" ? "Синхронизируйте компоненты macOS в настройках среды и убедитесь, что в гостевой системе выполнен вход в графический аккаунт." : error.message);
               return null;
             }) : null,
             api("/terminals"),
@@ -1135,18 +1135,18 @@ function App() {
         }
         if (connectionError || fatal) {
           setDialog({
-            title: "退出 Cage",
-            body: "工作台连接已中断，暂时无法确认环境状态。仍在运行的后台任务会继续。",
-            confirm: "仅退出桌面应用",
+            title: "Выход из Cage",
+            body: "Соединение с рабочей областью прервано, состояние среды пока не подтверждено. Запущенные фоновые задачи продолжатся.",
+            confirm: "Выйти только из приложения",
             resolve: (confirmed) => confirmed && native("quitNow"),
           });
           return;
         }
         setDialog({
-          title: "退出 Cage",
-          body: "退出前请保存文件和设置。可以保留环境，让后台任务继续运行；下次打开会重新连接。",
-          confirm: "停止环境并退出",
-          secondary: "保留运行并退出",
+          title: "Выход из Cage",
+          body: "Перед выходом сохраните файлы и настройки. Можно оставить среду, чтобы фоновые задачи продолжились; при следующем запуске произойдёт повторное подключение.",
+          confirm: "Остановить среду и выйти",
+          secondary: "Оставить работу и выйти",
           resolve: async (result) => {
             if (result === "secondary") {
               await native("quitNow");
@@ -1196,7 +1196,7 @@ function App() {
   const claudeLabels = new Map(claudeProfiles.accounts?.map((account) => [account.id, account.label || account.email]));
   const claudeNumbers = new Map(claudeProfiles.accounts?.map((account, index) => [account.id, index + 1]));
   const terminalAccountName = (tab) => claudeLabels.get(tab.claude_account_id) ||
-    (tab.terminalKind === "claude-login" ? "新账号登录" : tab.claude_account_id ? "Claude 账号" : "");
+    (tab.terminalKind === "claude-login" ? "Вход с новым аккаунтом" : tab.claude_account_id ? "Аккаунт Claude" : "");
   const displayTabs = orderedTabs(tabs, metadata).map((tab) =>
     tab.claude_account_id || tab.terminalKind === "claude-login" ? { ...tab,
       claudeLabel: terminalAccountName(tab), claudeAccountNumber: claudeNumbers.get(tab.claude_account_id) } : tab);
@@ -1232,7 +1232,7 @@ function App() {
       localStorage.setItem(clientStorageKey(key), JSON.stringify(value));
       setter(value);
     } catch {
-      notify("未能保存界面偏好，请检查本地存储空间。");
+      notify("Не удалось сохранить настройки интерфейса, проверьте свободное место в локальном хранилище.");
     }
   };
   const changeTabMetadata = (next) => {
@@ -1299,21 +1299,21 @@ function App() {
   const terminalHeader = tab => {
     const path = tab?.workspace || workspace;
     const account = tab?.claude_account_id && terminalAccountName(tab);
-    const detail = tab?.terminalKind === "claude-login" ? `登录 · ${account || "新账号"}`
-      : account ? `Claude · ${account}${tab.claude_account_source === "default" ? "（启动时账号）" : ""}` : "";
+    const detail = tab?.terminalKind === "claude-login" ? `Вход · ${account || "Новый аккаунт"}`
+      : account ? `Claude · ${account}${tab.claude_account_source === "default" ? " (аккаунт при запуске)" : ""}` : "";
     const location = split && tab ? `heading-${tab.id}` : "heading";
     return <TerminalHeader tab={tab} project={projectName(path, groups)} metadata={metadata}
       contentWorkspace={path} terminalDetail={detail} terminalDetailHint={tab?.claude_account_source === "default"
-        ? "此终端按启动时的普通终端登录标记。若普通终端已换号，请重新打开工作会话确认身份。" : detail}
+        ? "Этот терминал помечен как обычный вход при запуске. Если в обычном терминале сменился аккаунт, откройте рабочую сессию заново, чтобы подтвердить учётные данные." : detail}
       busy={busy} onHome={() => setHome(true)}
       sidebarButton={sidebarButton(paneSide(tab?.id))} exitButton={expandButton(tab)}
       location={location} triggerRef={!tab || tab.id === active ? terminalTrigger : undefined}
       menu={terminalMenuAt(location)} onClose={() => closeTab(tab)} />;
   };
   const recoverEditor = async tab => {
-    if (!(await confirm({ title: "重启编辑器？", body: "请先保存文件。浏览器、终端和环境会继续运行。", confirm: "重启编辑器" }))) return;
+    if (!(await confirm({ title: "Перезапустить редактор?", body: "Сначала сохраните файлы. Браузер, терминалы и среда продолжат работать.", confirm: "Перезапустить редактор" }))) return;
     setRecoveringEditor(true);
-    try { await api("/browser/editor-restart", { workspace: tab.workspace || workspace }); notify("编辑器已恢复"); }
+    try { await api("/browser/editor-restart", { workspace: tab.workspace || workspace }); notify("Редактор восстановлен"); }
     catch (error) { notify(error.message); }
     finally { setRecoveringEditor(false); }
   };
@@ -1345,7 +1345,7 @@ function App() {
           onClose={dialog.pending ? undefined : () => finishDialog(false)}
           footer={
             <>
-              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>取消</button>
+              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>Отмена</button>
               {dialog.secondary && (
                 <button disabled={dialog.pending} onClick={() => finishDialog("secondary")}>
                   {dialog.secondary}
@@ -1365,16 +1365,16 @@ function App() {
       )}
       {quitting && (
         <Modal
-          title={quitting.error ? "未能完成退出" : "正在停止环境"}
+          title={quitting.error ? "Не удалось завершить выход" : "Остановка среды"}
           onClose={cancelAutomaticExit}
           footer={
             <>
               <button onClick={cancelAutomaticExit}>
-                {quitting.error ? "留在 Cage" : "取消自动退出"}
+                {quitting.error ? "Остаться в Cage" : "Отменить автовыход"}
               </button>
               {quitting.error && (
                 <button className="primary" onClick={stopAndQuit}>
-                  重试停止并退出
+                  Повторить остановку и выход
                 </button>
               )}
             </>
@@ -1387,15 +1387,15 @@ function App() {
             <p>
               {quitting.error ||
                 (connectionError
-                  ? "正在恢复工作台连接，恢复后会继续确认停止结果。"
-                  : "停止完成后 Cage 会自动退出。取消自动退出只保留窗口，环境仍会停止。")}
+                  ? "Восстанавливается соединение с рабочей областью, затем проверка остановки продолжится."
+                  : "После остановки Cage закроется автоматически. Отмена автовыхода оставит только окно, среда всё равно будет остановлена.")}
             </p>
             {!quitting.error && (
               <p>
                 <LoaderCircle size={16} className="spin" />{" "}
                 {status?.job?.running
                   ? status.job.message
-                  : "正在确认环境已停止…"}
+                  : "Проверяем, что среда остановлена…"}
               </p>
             )}
           </div>
@@ -1408,10 +1408,10 @@ function App() {
       <>
         <div className="boot-screen">
           <Shield size={36} />
-          <h1>连接 Cage 工作台</h1>
+          <h1>Подключение к рабочей области Cage</h1>
           <p>{fatal}</p>
           <p className="muted">
-            请从 Cage 应用打开，或在终端运行 <code>cage desktop</code>。
+            Откройте из приложения Cage или запустите <code>cage desktop</code> в терминале.
           </p>
           <button
             className="primary"
@@ -1419,7 +1419,7 @@ function App() {
               nativeAvailable() ? native("reconnect") : location.reload()
             }
           >
-            重新连接
+            Переподключиться
           </button>
         </div>
         {dialogs}
@@ -1433,7 +1433,7 @@ function App() {
           <h1>Cage</h1>
           <p>
             <LoaderCircle size={16} className="spin" />
-            正在连接工作区…
+            Подключение к рабочей области…
           </p>
         </div>
         {dialogs}
@@ -1516,24 +1516,24 @@ function App() {
           {!managementPage && showHome && terminalHeader(null)}
           {!managementPage && status.ready && status.guest_system === "windows-remote" && !status.workload_ready && !connectionError && <div className="remote-capability-banner" role="status">
             <span>{browserAvailable
-              ? `Windows 云端：隔离 PowerShell 和浏览器已接通，外网${guestCapability(status, "network") ? "已开放" : "尚未开放"}；桌面和外部项目仍在适配。`
-              : "Windows 云端适配中：隔离 PowerShell 已接通，浏览器、桌面和外部项目尚未接通。"}</span>
-            {browserAvailable && <button disabled={!status.ready || busy} onClick={() => openBrowser()}>打开浏览器</button>}
-            <button disabled={!status.ready || busy} onClick={() => createTerminal(status.workspace || "", "shell").catch(e => notify(e.message))}>打开 PowerShell</button>
+              ? `Windows в облаке: изолированный PowerShell и браузер подключены, интернет ${guestCapability(status, "network") ? "открыт" : "не открыт"}; рабочий стол и внешние проекты пока адаптируются.`
+              : "Адаптация Windows в облаке: изолированный PowerShell подключён, браузер, рабочий стол и внешние проекты пока не подключены."}</span>
+            {browserAvailable && <button disabled={!status.ready || busy} onClick={() => openBrowser()}>Открыть браузер</button>}
+            <button disabled={!status.ready || busy} onClick={() => createTerminal(status.workspace || "", "shell").catch(e => notify(e.message))}>Открыть PowerShell</button>
           </div>}
           {browserAvailable && browserError && running && !connectionError && <div className="connection-banner" role="status">
-            <span>客机浏览器暂时无法连接。{browserError}</span>
-            <button onClick={() => refreshStatus.current?.()}>重试</button>
+            <span>Браузер гостевой системы временно недоступен. {browserError}</span>
+            <button onClick={() => refreshStatus.current?.()}>Повторить</button>
           </div>}
           {connectionError && (
             <div className="connection-banner" role="alert">
-              工作台连接中断，后台状态暂时未知。
+              Соединение с рабочей областью прервано, фоновое состояние пока неизвестно.
               <button
                 onClick={() =>
                   nativeAvailable() ? native("reconnect") : location.reload()
                 }
               >
-                重新连接工作台
+                Переподключиться к рабочей области
               </button>
             </div>
           )}
@@ -1541,7 +1541,7 @@ function App() {
             <main className="management-page" aria-labelledby={managementPage + "-title"}>
               <header className="chrome management-header">
                 {sidebarButton()}
-                <h1 id={managementPage + "-title"} tabIndex={-1}>{managementPage === "tailscale" ? "Tailscale" : "Claude 账号管理"}</h1>
+                <h1 id={managementPage + "-title"} tabIndex={-1}>{managementPage === "tailscale" ? "Tailscale" : "Управление аккаунтами Claude"}</h1>
               </header>
               <div className="management-content">
                 {managementPage === "tailscale" ? <TailscalePanel status={status}
@@ -1553,7 +1553,7 @@ function App() {
                   }}
                   onConfirm={confirm} onInstall={async () => {
                     const nativeGuest = ["macos", "windows-11"].includes(status.guest_system);
-                    if (nativeGuest && !await confirm({ title: "更新环境组件？", body: "更新会重新连接浏览器和显示组件，请先保存工作。设备身份、公钥和个人数据保留。", confirm: "更新组件" })) return;
+                    if (nativeGuest && !await confirm({ title: "Обновить компоненты среды?", body: "Обновление переподключит браузер и компоненты отображения, сначала сохраните работу. Идентификатор устройства, ключи и личные данные сохранятся.", confirm: "Обновить компоненты" })) return;
                     await action(nativeGuest ? "/environment/update" : "/tailscale/install", {});
                   }} /> : <ClaudeAccountsPanel store={claudeProfiles} tabs={tabs} onConfirm={confirm}
                   running={status.vm_running} environmentBusy={busy || storageRecovery}
@@ -1563,7 +1563,7 @@ function App() {
           )}
           <main className={`workspace ${split ? "workspace-split" : ""}`} ref={workspaceBox} hidden={Boolean(managementPage)}
             style={{ "--split-left": `${100 * (dualBrowser && nativeSplit?.fraction || 0.5)}%` }}>
-            {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? "放到左侧" : "放到右侧"}</div>}
+            {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? "Влево" : "Вправо"}</div>}
             {!storageRecovery && desktopOpen && macGuest && <MacOSAppWindow key="claude-desktop" uploads={desktopFiles.uploads} keyboard={status.keyboard} remoteRef={remote}
               onStatus={notify} onFallback={(text, message) => setTransfer({ text, message })} visible={!settingsOpen && !managementPage} onConfirm={confirm}
               sidebarCollapsed={sidebarCollapsed} onExpand={() => persist("cage-sidebar-collapsed", false, setSidebarCollapsed)} />}
@@ -1578,8 +1578,8 @@ function App() {
             />}
             {status.environment_update_required && !busy && (
               <div className="environment-update-banner" role="status">
-                <span>{status.environment_update_error || "环境组件需要更新。请先保存编辑器中的文件。"}</span>
-                <button onClick={() => openSettings("project")}>查看并更新</button>
+                <span>{status.environment_update_error || "Компоненты среды требуют обновления. Сначала сохраните файлы в редакторе."}</span>
+                <button onClick={() => openSettings("project")}>Просмотреть и обновить</button>
               </div>
             )}
             {!storageRecovery && (status.vm_running || terminal) && (
@@ -1621,11 +1621,11 @@ function App() {
                         tabId={liveBrowser?.id} onStatus={notify}
                         onFallback={(text, message) => setTransfer({ text, message })} />}
                       {!status.ready && <div className="view-overlay">
-                        <RefreshCw /><h3>浏览器连接暂时不可用</h3>
-                        <p>环境和终端仍可运行；恢复浏览器不会停止现有终端。</p>
-                        <button className="primary" disabled={busy} onClick={() => startEnvironment({})}>恢复浏览器</button>
+                        <RefreshCw /><h3>Подключение браузера временно недоступно</h3>
+                        <p>Среда и терминалы продолжают работать; восстановление браузера не остановит текущие терминалы.</p>
+                        <button className="primary" disabled={busy} onClick={() => startEnvironment({})}>Восстановить браузер</button>
                       </div>}
-                      {status.ready && !splitReady && <div className="view-overlay">正在调整浏览器布局…</div>}
+                      {status.ready && !splitReady && <div className="view-overlay">Настройка расположения браузера…</div>}
                     </div>
                   </section>
                 )}
@@ -1638,7 +1638,7 @@ function App() {
                     <div className="pane-body">
                       <TerminalView
                         session={{ ...tab, id: tab.sessionId }}
-                        onLoginTab={({ id }) => showBrowserResult({ id, kind: "web", login: true, incognito: true, title: "账号授权" })}
+                        onLoginTab={({ id }) => showBrowserResult({ id, kind: "web", login: true, incognito: true, title: "Авторизация аккаунта" })}
                         onControls={(control) =>
                           control
                             ? terminalControls.current.set(tab.id, control)
@@ -1659,48 +1659,48 @@ function App() {
                 <div className="welcome-content">
                   <img className="welcome-logo" src={logo} alt="Cage" />
                   {storageRecovery ? <>
-                    <h1>环境存储需要恢复</h1>
+                    <h1>Хранилище среды требует восстановления</h1>
                     <p className="welcome-subtitle"><SafetyMessage message={status.storage_recovery.error} /></p>
-                    <p className="field-help">在设置中恢复环境存储后，再启动浏览器和终端。诊断包可以从同一页面导出。</p>
-                    <button className="primary" onClick={() => openSettings("project")}>恢复环境存储</button>
+                    <p className="field-help">Восстановите хранилище среды в настройках, затем запускайте браузер и терминалы. Диагностический пакет можно экспортировать на той же странице.</p>
+                    <button className="primary" onClick={() => openSettings("project")}>Восстановить хранилище среды</button>
                   </> : setupProgress ? <>
-                    <h1>{status.job.error ? "环境安装未完成" : "正在安装 Cage 环境"}</h1>
+                    <h1>{status.job.error ? "Установка среды не завершена" : "Установка среды Cage"}</h1>
                     <SetupProgress job={status.job} onDetails={() => setDetails(true)}
                       onStop={stop} onRetry={() => startEnvironment(status.job.kind === "guest-install" ? { guest_system: status.job.setup_progress.system } : {})} disconnected={Boolean(connectionError)} />
                   </> : <>
                   <h1>
                     {busy
                       ? status.job.kind === "stop"
-                        ? "正在停止 Cage 环境"
+                        ? "Остановка среды Cage"
                         : status.job.kind === "storage"
-                          ? "正在调整环境存储"
+                          ? "Настройка хранилища среды"
                         : status.job.kind === "project"
-                          ? "正在打开项目"
-                          : "正在准备 Cage 环境"
+                          ? "Открытие проекта"
+                          : "Подготовка среды Cage"
                       : running
                         ? !status.ready
-                          ? "Cage 环境正在连接"
-                          : "Cage 环境已就绪"
+                          ? "Подключение среды Cage"
+                          : "Среда Cage готова"
                         : setupProxy
-                          ? "为 Claude 准备独立工作区"
-                          : "先启动 Cage 环境"}
+                          ? "Подготовка отдельной рабочей области для Claude"
+                          : "Сначала запустите среду Cage"}
                   </h1>
                   <p className="welcome-subtitle">
                     <SafetyMessage message={busy
                       ? status.job.message
                       : running
                         ? !status.ready
-                          ? status.environment_update_error || "浏览器连接尚未就绪，可以恢复连接或继续使用终端。"
+                          ? status.environment_update_error || "Подключение браузера ещё не готово; можно восстановить соединение или продолжить работу в терминале."
                           : network.mode === "open"
-                            ? status.guest_system === "windows-remote" ? "环境已连接，网络检查通过。可以浏览网页或使用隔离 PowerShell。" : "环境已连接，网络检查通过。可以浏览网页或打开本地项目。"
-                            : `${network.label}。终端与${status.guest_system === "windows-remote" ? "隔离工作目录" : "本地文件"}仍可使用。`
+                            ? status.guest_system === "windows-remote" ? "Среда подключена, проверка сети пройдена. Можно просматривать веб-страницы или использовать изолированный PowerShell." : "Среда подключена, проверка сети пройдена. Можно просматривать веб-страницы или открыть локальный проект."
+                            : `${network.label}. Терминал и${status.guest_system === "windows-remote" ? " изолированный рабочий каталог" : " локальные файлы"} по-прежнему доступны.`
                         : setupProxy
-                          ? "先连接你的代理，再启动浏览器、终端和编辑器。无需安装额外的代理软件。"
-                          : "准备独立的浏览器和终端，完成网络检查后开始工作。"} />
+                          ? "Сначала подключите прокси, затем запускайте браузер, терминалы и редактор. Дополнительное прокси-приложение не нужно."
+                          : "Подготовьте отдельные браузер и терминал и начните работу после проверки сети."} />
                   </p>
                   {!running && !nativeGuestLabel && (
-                    <ol className="onboarding-steps" aria-label="开始使用 Cage">
-                      {["配置代理", "启动环境", "开始工作"].map(
+                    <ol className="onboarding-steps" aria-label="Начало работы с Cage">
+                      {["Настройка прокси", "Запуск среды", "Начало работы"].map(
                         (label, index) => (
                           <li
                             key={label}
@@ -1724,18 +1724,18 @@ function App() {
                         size={24}
                       />
                       <span>
-                        <strong>Cage 隔离环境</strong>
+                        <strong>Изолированная среда Cage</strong>
                         <small>
                           {running
                             ? runtimeLabel
                             : setupProxy
-                              ? "自备代理订阅、YAML 配置或节点"
-                              : nativeGuestLabel ? `${nativeGuestLabel} 客机已安装` : "代理已配置，首次启动会下载开发环境"}
+                              ? "Своя подписка, YAML-конфигурация или узлы прокси"
+                              : nativeGuestLabel ? `Гостевая система ${nativeGuestLabel} установлена` : "Прокси настроен, при первом запуске скачается среда разработки"}
                         </small>
                       </span>
                     </div>
                     {!busy && !running && !account?.guest_system && status.local_vm_storage && !isRemoteClient() && <GuestSystemPicker system={guestSystem} onChange={setGuestSystem} />}
-                    {!running && !nativeGuestLabel && status.local_vm_storage && !isRemoteClient() && <button className="storage-entry text-button" disabled={busy} onClick={() => openSettings("project")}>选择环境存储位置</button>}
+                    {!running && !nativeGuestLabel && status.local_vm_storage && !isRemoteClient() && <button className="storage-entry text-button" disabled={busy} onClick={() => openSettings("project")}>Выбрать расположение хранилища среды</button>}
                     <div className="start-project-footer">
                       <span>
                         <i className={`status-dot ${network.mode}`} />
@@ -1744,8 +1744,8 @@ function App() {
                           : running
                             ? network.label
                             : setupProxy
-                              ? "等待配置代理"
-                              : "环境已停止"}
+                              ? "Ожидание настройки прокси"
+                              : "Среда остановлена"}
                       </span>
                       <button
                         className="primary"
@@ -1781,17 +1781,17 @@ function App() {
                           <TerminalSquare size={16} />
                         )}
                         {busy
-                          ? "正在处理…"
+                          ? "Обработка…"
                           : !running
                             ? setupProxy
-                              ? "配置网络与代理"
-                              : guestSystem?.activate ? "打开工作台" : guestSystem?.pending ? "继续安装" :
-                                guestSystem && guestSystem.guest_system !== "debian-13" ? "安装客户机" : "启动 Cage 环境"
+                              ? "Настроить сеть и прокси"
+                              : guestSystem?.activate ? "Открыть рабочую область" : guestSystem?.pending ? "Продолжить установку" :
+                                guestSystem && guestSystem.guest_system !== "debian-13" ? "Установить гостевую систему" : "Запустить среду Cage"
                             : !status.ready
-                              ? "恢复浏览器"
+                              ? "Восстановить браузер"
                               : !workspace && projectsAvailable
-                                ? "打开项目"
-                                : "新建终端"}
+                                ? "Открыть проект"
+                                : "Создать терминал"}
                       </button>
                     </div>
                     {terminalMenuAt("start")}
@@ -1801,15 +1801,15 @@ function App() {
                       {macGuest && <MacOSLogin disabled={!status.ready || busy} />}
                       <button onClick={newTerminalHere} data-terminal-location="shortcuts" aria-haspopup="menu" disabled={busy}>
                         <TerminalSquare size={16} />
-                        新建终端
+                        Новый терминал
                       </button>
                       <button
                         onClick={() => openEditor(contentWorkspace)}
                         disabled={!status.ready || busy || !editorAvailable}
-                        title={editorAvailable ? undefined : "当前环境尚未接通文件编辑器，可使用 PowerShell 管理隔离工作目录中的文件"}
+                        title={editorAvailable ? undefined : "Текущая среда пока не подключает редактор файлов; управляйте файлами изолированного рабочего каталога в PowerShell"}
                       >
                         <FileCode2 size={16} />
-                        浏览文件
+                        Просмотр файлов
                       </button>
                     </div>
                   )}
@@ -1817,22 +1817,22 @@ function App() {
                   {!running && !nativeGuestLabel && (
                     <p className="welcome-hint">
                       {setupProxy
-                        ? "Cage 不提供代理或 Claude 账户。连接后，在 Cage 内完成 Claude 登录。"
-                        : "首次安装时可在操作详情中查看下载和配置进度；中断后可以继续安装。"}
+                        ? "Cage не предоставляет прокси или аккаунт Claude. После подключения войдите в Claude внутри Cage."
+                        : "При первой установке ход загрузки и настройки виден в деталях операции; после прерывания установку можно продолжить."}
                     </p>
                   )}
                   {running && status.ready && (
                     <p className="welcome-hint">
-                      {status.guest_system === "windows-remote" ? "PowerShell 和浏览器无需 Claude 登录。只有使用 Claude 时才需要登录账户。" : <>打开项目后，在终端输入 <code>claude</code>，按提示登录你的账户。</>}
+                      {status.guest_system === "windows-remote" ? "PowerShell и браузер не требуют входа в Claude. Вход в аккаунт нужен только для работы с Claude." : <>После открытия проекта введите в терминале <code>claude</code> и войдите в аккаунт по подсказкам.</>}
                       <br />
-                      {status.guest_system === "windows-remote" ? "文件保存在云端隔离工作目录中，不会挂载你的本地文件夹。" : isRemoteClient() ? "打开的项目位于云端，编辑和删除会直接影响云端文件。" : "打开的项目与本机共享，编辑和删除文件会同步。"}
+                      {status.guest_system === "windows-remote" ? "Файлы хранятся в изолированном рабочем каталоге облака; ваши локальные папки не монтируются." : isRemoteClient() ? "Открытый проект находится в облаке: редактирование и удаление сразу влияют на облачные файлы." : "Открытый проект общий с этим компьютером: изменения и удаление файлов синхронизируются."}
                     </p>
                   )}
                   </>}
                   {status.project_error && (
                     <div className="start-error" role="alert">
-                      <strong>部分项目文件夹尚未连接</strong>
-                      <p>环境和浏览器可继续使用。</p>
+                      <strong>Некоторые папки проекта ещё не подключены</strong>
+                      <p>Среда и браузер продолжают работать.</p>
                       {status.project_errors?.length ? (
                         <ul className="project-connection-errors">
                           {status.project_errors.map(({ path, message, recovery }) => (
@@ -1850,14 +1850,14 @@ function App() {
                   )}
                   {!storageRecovery && !setupProgress && status.job?.error && (
                     <div className="start-error" role="alert">
-                      <strong>{status.job.message || "本次操作未完成"}</strong>
+                      <strong>{status.job.message || "Операция не завершена"}</strong>
                       <p><SafetyMessage message={status.job.error} /></p>
                       {status.can_restore && (
                         <button
                           className="text-button"
                           onClick={() => openSettings("project")}
                         >
-                          查看恢复选项
+                          Просмотреть варианты восстановления
                         </button>
                       )}
                     </div>
@@ -1867,7 +1867,7 @@ function App() {
                       className="text-button details-link"
                       onClick={() => setDetails(true)}
                     >
-                      查看操作详情
+                      Детали операции
                     </button>
                   )}
                 </div>
@@ -1876,33 +1876,33 @@ function App() {
           </main>
           <footer className="status-bar">
             {sidebarCollapsed && <AppUpdateButton updates={appUpdates} />}
-            <button onClick={() => setSafetyOpen(true)} title="网络与隔离检查">
+            <button onClick={() => setSafetyOpen(true)} title="Проверка сети и изоляции">
               <EnvironmentShield
                 size={14}
                 healthy={status.ready && network.mode === "open"}
               />
-              <span>{running ? network.label : "网络检查"}</span>
+              <span>{running ? network.label : "Проверка сети"}</span>
             </button>
             <span className="status-divider" />
             <button onClick={() => openSettings("network")}>
               <MapPin size={12} />
               <span>
                 {status.network_error
-                  ? "出口待确认"
+                  ? "Выход не подтверждён"
                   : status.location || status.safety?.exit_ip
                     ? [
                         status.safety?.exit_ip || status.location?.ip,
                         status.location?.country,
                         status.location?.city,
                       ].filter(Boolean).join(" · ")
-                    : "指定代理出口"}
+                    : "Указать выход прокси"}
               </span>
             </button>
             <span className="status-divider" />
             <button onClick={() => openSettings("region")}>
               <Clock3 size={12} />
               {settings.timezone}
-              {settings.auto_timezone ? " · 自动" : ""}
+              {settings.auto_timezone ? " · авто" : ""}
             </button>
             <span className="status-divider" />
             <NetworkLatency
@@ -1920,12 +1920,12 @@ function App() {
                   ? status.job.message
                   : running
                     ? status.ready
-                      ? isRemoteClient() ? "文件保存在云端" : "文件与本机同步"
-                      : "环境运行中 · 浏览器待恢复"
+                      ? isRemoteClient() ? "Файлы сохраняются в облаке" : "Файлы синхронизированы с компьютером"
+                      : "Среда работает · браузер требует восстановления"
                     : "")} />
             </span>
             {status.job?.log && (
-              <button title="操作详情" onClick={() => setDetails(true)}>
+              <button title="Детали операции" onClick={() => setDetails(true)}>
                 <MoreHorizontal size={15} />
               </button>
             )}
@@ -1934,10 +1934,10 @@ function App() {
               disabled={
                 Boolean(startRequest) || (!running && !busy) || (status?.job?.kind === "stop" && busy)
               }
-              title="停止当前环境"
+              title="Остановить текущую среду"
             >
               <Power size={12} />
-              <span>停止环境</span>
+              <span>Остановить среду</span>
             </button>
           </footer>
         </div>
@@ -1970,19 +1970,19 @@ function App() {
       )}
       {rename && (
         <Modal
-          title="重命名标签"
+          title="Переименовать вкладку"
           onClose={() => setRename(null)}
           footer={
             <>
-              <span className="save-note">仅修改工作台中显示的名称</span>
-              <button onClick={() => setRename(null)}>取消</button>
+              <span className="save-note">Меняется только имя, отображаемое в рабочей области</span>
+              <button onClick={() => setRename(null)}>Отмена</button>
               <button
                 className="primary"
                 form="rename-tab"
                 type="submit"
                 disabled={!rename.title.trim()}
               >
-                保存名称
+                Сохранить имя
               </button>
             </>
           }
@@ -2018,7 +2018,7 @@ function App() {
               setRename(null);
             }}
           >
-            <label htmlFor="tab-title">标签名称</label>
+            <label htmlFor="tab-title">Имя вкладки</label>
             <input
               id="tab-title"
               autoFocus
@@ -2033,12 +2033,12 @@ function App() {
       )}
       {transfer && (
         <Modal
-          title="文本传递"
+          title="Передача текста"
           onClose={() => setTransfer(null)}
           footer={
             <>
-              <span className="save-note">仅在你的操作下传递文本</span>
-              <button onClick={() => setTransfer(null)}>关闭</button>
+              <span className="save-note">Текст передаётся только по вашему действию</span>
+              <button onClick={() => setTransfer(null)}>Закрыть</button>
               <button
                 className="primary"
                 onClick={() => {
@@ -2046,7 +2046,7 @@ function App() {
                   setTransfer(null);
                 }}
               >
-                粘贴到 Cage
+                Вставить в Cage
               </button>
             </>
           }
@@ -2054,7 +2054,7 @@ function App() {
           <div className="modal-body">
             <p>{transfer.message}</p>
             <textarea
-              aria-label="待传递文本"
+              aria-label="Текст для передачи"
               className="transfer-text"
               value={transfer.text}
               onChange={(e) =>
@@ -2065,13 +2065,13 @@ function App() {
         </Modal>
       )}
       {details && (
-        <Modal title="操作详情" wide onClose={() => setDetails(false)}>
+        <Modal title="Детали операции" wide onClose={() => setDetails(false)}>
           <div className="modal-body">
             <p><SafetyMessage message={status.job.message} /></p>
             {status.job.error && (
               <div className="error-message"><SafetyMessage message={status.job.error} /></div>
             )}
-            <pre className="job-log">{status.job.log || "暂无日志"}</pre>
+            <pre className="job-log">{status.job.log || "Журнала пока нет"}</pre>
           </div>
         </Modal>
       )}
@@ -2084,7 +2084,7 @@ function App() {
                   safety: {
                     ...status.safety,
                     gate: null,
-                    error: "控制服务连接中断，无法确认当前外网状态",
+                    error: "Соединение со службой управления прервано, статус внешней сети не подтверждён",
                   },
                 }
               : status

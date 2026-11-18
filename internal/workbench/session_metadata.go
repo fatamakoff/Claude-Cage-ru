@@ -20,12 +20,12 @@ func (s *Server) updateSessionMetadata(id string, input sessionMetadataInput, re
 	}
 	defer s.op.Unlock()
 	if input.Title == nil && input.Pinned == nil {
-		return mobileSession{}, errors.New("请选择要修改的会话信息")
+		return mobileSession{}, errors.New("Выберите сведения о сессии для изменения")
 	}
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)
 		if title == "" || !utf8.ValidString(title) || utf8.RuneCountInString(title) > 100 {
-			return mobileSession{}, errors.New("会话名称需要 1 至 100 个字符")
+			return mobileSession{}, errors.New("Имя сессии должно содержать от 1 до 100 символов")
 		}
 		input.Title = &title
 	}
@@ -107,7 +107,7 @@ func (s *Server) setSessionArchived(id string, archived bool, requestContext con
 		if requestContext != nil {
 			s.account.mu.Unlock()
 		}
-		return errors.New("永久删除尚未完成，请先重试删除")
+		return errors.New("Безвозвратное удаление не завершено; повторите удаление")
 	}
 	record.Archived = archived
 	record.changed()
@@ -193,7 +193,7 @@ func (s *Server) mobilePurgeSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !input.Confirm {
-		http.Error(w, "需要确认永久删除该会话及 Claude Code 原始历史", 400)
+		http.Error(w, "Требуется подтверждение безвозвратного удаления этой сессии и исходной истории Claude Code", 400)
 		return
 	}
 	if err := s.purgeSession(r.Context(), r.PathValue("id")); err != nil {
@@ -233,7 +233,7 @@ func (s *Server) purgeSession(ctx context.Context, id string) error {
 		return errWindowsLegacyMobile
 	}
 	if !record.Archived {
-		return errors.New("请先归档会话，再从已归档会话中永久删除")
+		return errors.New("Сначала отправьте сессию в архив, затем удалите её из архива безвозвратно")
 	}
 	// Once deletion is admitted, a retry must finish it before restoration can
 	// reopen a transcript that may already be partly removed from the guest.
@@ -300,7 +300,7 @@ func (s *Server) terminalSessionMetadata(w http.ResponseWriter, r *http.Request)
 	}
 	id, _ := terminal.summary()["cli_session_id"].(string)
 	if id == "" {
-		http.Error(w, "此终端没有共享 Claude Code 会话", 409)
+		http.Error(w, "У этого терминала нет общей сессии Claude Code", 409)
 		return
 	}
 	var input sessionMetadataInput

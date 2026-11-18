@@ -38,7 +38,7 @@ func (a ResourceAllocation) Limits() (memory, cpus int, err error) {
 		return AutomaticMemoryGiB(memory), cpus, nil
 	}
 	if a.MemoryGiB < 2 || a.MemoryGiB > memory || a.CPUs < 1 || a.CPUs > cpus {
-		return 0, 0, fmt.Errorf("内存上限须为 2–%d GiB，CPU 须为 1–%d 个逻辑核心", memory, cpus)
+		return 0, 0, fmt.Errorf("Предел памяти должен быть 2–%d GiB, а CPU — 1–%d логических ядер", memory, cpus)
 	}
 	return a.MemoryGiB, a.CPUs, nil
 }

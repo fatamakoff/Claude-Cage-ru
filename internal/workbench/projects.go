@@ -70,12 +70,12 @@ func (s *Server) openProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Workspace == "" {
-		http.Error(w, "请选择项目文件夹", 400)
+		http.Error(w, "Выберите папку проекта", 400)
 		return
 	}
 	if !s.op.TryLock() {
 		w.Header().Set("X-Cage-Recovery", "project-operation-busy")
-		http.Error(w, "另一个操作仍在进行，请稍候", 409)
+		http.Error(w, "Выполняется другая операция, подождите", 409)
 		return
 	}
 	defer s.op.Unlock()
@@ -83,7 +83,7 @@ func (s *Server) openProject(w http.ResponseWriter, r *http.Request) {
 	ready, closing, preferences := s.ready, s.closing, s.preferences
 	s.mu.Unlock()
 	if closing || !ready || s.busy() {
-		http.Error(w, "环境尚未就绪或正在处理其他操作，请稍后重试", 409)
+		http.Error(w, "Среда не готова или выполняется другая операция, повторите позже", 409)
 		return
 	}
 	workspace, err := s.connectProject(input.Workspace, input.Add)
@@ -231,11 +231,11 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 	// Stale FUSE mounts can remain after a control-service restart. Only reconnect
 	// this explicitly authorized path, without changing other projects' mounts.
 	if _, err = s.guest(ctx, "if mountpoint -q "+quoted+"; then fusermount3 -uz "+quoted+"; fi; sudo mkdir -p "+quoted+" && sudo chown \"$(id -u):$(id -g)\" "+quoted); err != nil {
-		return errors.New("无法在 Cage 中准备项目目录")
+		return errors.New("Не удалось подготовить каталог проекта в Cage")
 	}
 	probe, err := os.CreateTemp(path, ".cage-mount-probe-*")
 	if err != nil {
-		return fmt.Errorf("无法验证项目目录的读写权限：%w", err)
+		return fmt.Errorf("Не удалось проверить права чтения и записи в каталоге проекта: %w", err)
 	}
 	defer os.Remove(probe.Name())
 	challenge := randomToken()
@@ -264,10 +264,10 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 		select {
 		case <-ctx.Done():
 			share.close()
-			return errors.New("项目文件夹连接超时，原有环境与会话保持运行")
+			return errors.New("Истекло время подключения папки проекта, существующая среда и сессия продолжают работать")
 		case <-share.done:
 			share.close()
-			return errors.New("项目文件夹未能连接，原有环境与会话保持运行")
+			return errors.New("Не удалось подключить папку проекта, существующая среда и сессия продолжают работать")
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
@@ -306,21 +306,21 @@ func projectShareOptions(cache bool) string {
 // process holds open keeps its cached attributes until they expire.
 func (s *Server) refreshProjectFiles(w http.ResponseWriter, r *http.Request) {
 	if s.windowsGuest != nil || s.macosGuest != nil {
-		http.Error(w, "此环境的项目文件始终直接读取，无需刷新", 409)
+		http.Error(w, "Файлы проектов в этой среде всегда читаются напрямую, обновление не требуется", 409)
 		return
 	}
 	s.mu.Lock()
 	ready, closing := s.ready, s.closing
 	s.mu.Unlock()
 	if closing || !ready {
-		http.Error(w, "环境尚未就绪，请稍后重试", 409)
+		http.Error(w, "Среда не готова, повторите позже", 409)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	// Unused directory entries and inodes of every filesystem; nothing is lost.
 	if _, err := s.guest(ctx, "echo 2 | sudo -n tee /proc/sys/vm/drop_caches >/dev/null"); err != nil {
-		http.Error(w, "项目文件未能刷新，请稍后重试", 502)
+		http.Error(w, "Не удалось обновить файлы проекта, повторите позже", 502)
 		return
 	}
 	jsonReply(w, map[string]bool{"refreshed": true})
@@ -402,14 +402,14 @@ func (s *Server) projectWorkspace(path string) (string, error) {
 	}
 	paths, err := s.projectPaths()
 	if err != nil {
-		return "", errors.New("无法读取项目列表，请检查项目配置")
+		return "", errors.New("Не удалось прочитать список проектов, проверьте конфигурацию проектов")
 	}
 	for _, authorized := range paths {
 		if path == authorized {
 			return validateWorkspace(path, s.profile)
 		}
 	}
-	return "", errors.New("请先通过打开项目添加该文件夹")
+	return "", errors.New("Сначала добавьте эту папку через открытие проекта")
 }
 
 func (s *Server) rememberSharedProject(path string) error {
@@ -451,7 +451,7 @@ func (s *Server) restoreProjectShares() {
 		if err := s.ensureProjectShare(path); err != nil {
 			failures = append(failures, projectShareFailure(path, err))
 		} else if err := s.rememberSharedProject(path); err != nil {
-			failures = append(failures, projectShareError{Path: path, Message: "项目已连接，但未能保存项目记录：" + err.Error()})
+			failures = append(failures, projectShareError{Path: path, Message: "Проект подключён, но запись о проекте не сохранена: " + err.Error()})
 		}
 	}
 	s.mu.Lock()

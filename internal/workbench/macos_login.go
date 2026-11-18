@@ -121,7 +121,7 @@ func (s *Server) macSetupPermissions(ctx context.Context, refreshSharing bool) (
 		return status, err
 	}
 	if json.Unmarshal(data, &status) != nil || status.Error != "" {
-		return status, errors.New("请在首次设置画面中登录客机账户")
+		return status, errors.New("Войдите в учётную запись гостевой системы на экране первой настройки")
 	}
 	s.mu.Lock()
 	status.Projects = !s.macSetupProjectsChecked.IsZero() && time.Since(s.macSetupProjectsChecked) < 2*time.Minute
@@ -129,7 +129,7 @@ func (s *Server) macSetupPermissions(ctx context.Context, refreshSharing bool) (
 	s.mu.Unlock()
 	if status.ProjectInstallRequired {
 		status.Projects = false
-		status.ProjectsError = "请先在 Cage 客机画面中完成 macFUSE 官方安装器，再启用两个文件系统扩展开关。"
+		status.ProjectsError = "Сначала завершите установку официального установщика macFUSE на экране гостевой системы Cage, затем включите оба переключателя расширений файловой системы."
 	}
 	if status.Screen && status.Input && !status.ProjectInstallRequired && !status.Projects && probeDue && s.op.TryLock() {
 		s.mu.Lock()
@@ -169,13 +169,13 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 	input.Setup = r.URL.Path == "/api/macos/first-setup"
 	if r.URL.Path == "/api/macos/maintenance" {
 		if !guestos.ValidMacMaintenancePurpose(input.Maintenance) {
-			http.Error(w, "请选择需要恢复的客机系统权限", http.StatusBadRequest)
+			http.Error(w, "Выберите разрешения гостевой системы, которые нужно восстановить", http.StatusBadRequest)
 			return
 		}
 		switch input.Action {
 		case "open", "close", "frame", "click", "key", "scroll", "select-all", "fill-password":
 		default:
-			http.Error(w, "维护画面只接受窗口查看与局部输入", http.StatusBadRequest)
+			http.Error(w, "Экран обслуживания принимает только просмотр окна и локальный ввод", http.StatusBadRequest)
 			return
 		}
 		if input.Maintenance == "sharing" && input.Action != "close" {
@@ -190,7 +190,7 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 		input.Maintenance = ""
 	}
 	if input.Setup && !s.macSetupPending() {
-		http.Error(w, "首次设置入口已关闭", http.StatusGone)
+		http.Error(w, "Вход в первую настройку закрыт", http.StatusGone)
 		return
 	}
 	// Passwords are supplied exclusively from encrypted storage, never from HTTP.
@@ -199,12 +199,12 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 		install, err := guestos.LoadInstallation(s.profile)
 		bound, bindingErr := guestos.LoadMacOSProfile(s.profile)
 		if err != nil || bindingErr != nil || install == nil || bound == nil || bound.MachineID != s.macosGuest.MachineID {
-			http.Error(w, "客机身份已改变", 409)
+			http.Error(w, "Идентификатор гостевой системы изменился", 409)
 			return
 		}
 		password, err := s.account.savedMacGuestPassword(r.Context(), install.ID)
 		if err != nil || password == "" {
-			http.Error(w, "客机凭据不可用，请核对安装记录与保险箱", 409)
+			http.Error(w, "Учётные данные гостевой системы недоступны, проверьте запись установки и хранилище паролей", 409)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
@@ -218,14 +218,14 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 		}
 		gate, err := s.gateClient()
 		if err != nil {
-			http.Error(w, "请先启动客机，确认首次设置期间外网已关闭", 409)
+			http.Error(w, "Сначала запустите гостевую систему и убедитесь, что на время первой настройки внешняя сеть отключена", 409)
 			return
 		}
 		check, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		state, err := gate.Status(check)
 		cancel()
 		if err != nil || state.Mode != cage.GateClosed {
-			http.Error(w, "首次设置仅在客机断网时可用", 409)
+			http.Error(w, "Первая настройка доступна только при отключённой сети гостевой системы", 409)
 			return
 		}
 		switch input.Action {
@@ -234,12 +234,12 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 			// never receives the stored credential; no submit key is sent.
 			install, err := guestos.LoadInstallation(s.profile)
 			if err != nil || install == nil || install.ID.String() != s.macosGuest.SetupID {
-				http.Error(w, "首次设置身份已改变", 409)
+				http.Error(w, "Идентификатор первой настройки изменился", 409)
 				return
 			}
 			password, err := s.account.savedMacGuestPassword(r.Context(), install.ID)
 			if err != nil || password == "" {
-				http.Error(w, "客机凭据不可用，请核对安装记录与保险箱", 409)
+				http.Error(w, "Учётные данные гостевой системы недоступны, проверьте запись установки и хранилище паролей", 409)
 				return
 			}
 			input.Password = password
@@ -260,11 +260,11 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if input.Action == "finish" && (!perm.Screen || !perm.Input || !perm.Sharing) {
-				http.Error(w, "请先完成窗口录制、辅助功能、文件系统扩展和屏幕共享授权", 409)
+				http.Error(w, "Сначала разрешите запись экрана, универсальный доступ, расширения файловой системы и общий доступ к экрану", 409)
 				return
 			}
 			if !s.op.TryLock() {
-				http.Error(w, "正在处理其他客机操作，请重试", 409)
+				http.Error(w, "Выполняется другая операция с гостевой системой, повторите попытку", 409)
 				return
 			}
 			defer s.op.Unlock()
@@ -283,7 +283,7 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 			defer cancel()
 			cmd := s.macOSSetupAdminCommand(ctx)
 			if err = cmd.Run(); err != nil {
-				http.Error(w, "临时设置账户未关闭，请重试完成设置", 409)
+				http.Error(w, "Временная учётная запись настройки не закрыта, повторите завершение настройки", 409)
 				return
 			}
 		case "screen", "input", "projects", "sharing":
@@ -291,15 +291,15 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 			return
 		case "open", "close", "frame", "click", "key", "scroll":
 		default:
-			http.Error(w, "无效的首次设置操作", 400)
+			http.Error(w, "Недопустимая операция первой настройки", 400)
 			return
 		}
 	} else if input.Action == "finish" {
-		http.Error(w, "无效的登录操作", 400)
+		http.Error(w, "Недопустимая операция входа", 400)
 		return
 	}
 	if len(input.Session) > 80 {
-		http.Error(w, "无效的登录会话", 400)
+		http.Error(w, "Недопустимая сессия входа", 400)
 		return
 	}
 	timeout := 8 * time.Second
@@ -312,7 +312,7 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 	var dial net.Dialer
 	conn, err := dial.DialContext(ctx, "unix", filepath.Join(s.instanceDir(), "cage-login.sock"))
 	if err != nil {
-		http.Error(w, "这台客机尚未启动带登录控件的运行器", 409)
+		http.Error(w, "Для этой гостевой системы ещё не запущен модуль с элементами управления входом", 409)
 		return
 	}
 	defer conn.Close()
@@ -321,11 +321,11 @@ func (s *Server) macOSLoginWindow(w http.ResponseWriter, r *http.Request) {
 	_ = conn.SetDeadline(time.Now().Add(timeout))
 	var result guestos.MacLoginReply
 	if json.NewEncoder(conn).Encode(input) != nil || json.NewDecoder(io.LimitReader(conn, 6<<20)).Decode(&result) != nil {
-		http.Error(w, "客机登录界面无法响应", 503)
+		http.Error(w, "Интерфейс входа гостевой системы не отвечает", 503)
 		return
 	}
 	if input.Maintenance != "" && result.MaintenanceVersion != 1 {
-		result = guestos.MacLoginReply{Closed: true, Recovery: "environment-restart", Error: "虚拟 Mac 运行器需要重新加载。请保存工作，在环境设置中停止并重新启动虚拟 Mac，再打开授权设置。"}
+		result = guestos.MacLoginReply{Closed: true, Recovery: "environment-restart", Error: "Модуль виртуального Mac нужно перезагрузить. Сохраните работу, остановите и снова запустите виртуальный Mac в настройках среды, затем откройте настройки авторизации."}
 	}
 	s.trackMacLogin(epoch, input, result)
 	if input.Action == "open" && ctx.Err() != nil {

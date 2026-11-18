@@ -40,28 +40,28 @@ func WindowsProfilePath(root string) string { return filepath.Join(root, "window
 
 func (p WindowsProfile) validate() error {
 	if p.Mode != "" && p.Mode != "hyperv" && p.Mode != "remote" {
-		return errors.New("Windows 工作环境运行模式无效")
+		return errors.New("Неверный режим работы среды Windows")
 	}
 	if p.SandboxPackage != "" && (!p.Remote() || p.SandboxPackage != p.VMID.String()) {
-		return errors.New("Windows 云端沙箱标识与绑定的实例不符")
+		return errors.New("Идентификатор облачной песочницы Windows не совпадает с привязанным экземпляром")
 	}
 	if p.Remote() {
 		machine, err := uuid.Parse(p.MachineID)
 		if err != nil || machine == uuid.Nil || p.NetworkPairingFile != "" {
-			return errors.New("Windows 云端模式需要机器身份，不能使用 Hyper-V 网络配对")
+			return errors.New("Облачному режиму Windows нужна идентичность машины; сетевое сопряжение Hyper-V недопустимо")
 		}
 	}
 	if p.Version != 1 || p.VMID == uuid.Nil || !windowsGUISID.MatchString(p.GUIUserSID) ||
 		len(p.GUIUser) > 256 || strings.ContainsAny(p.GUIUser, "\x00\r\n") {
-		return errors.New("Windows 客机标识或图形用户无效")
+		return errors.New("Неверный идентификатор гостевой системы Windows или графический пользователь")
 	}
 	for _, path := range []string{p.InstanceDirectory, p.RelayExecutable, p.PairingFile} {
 		if !filepath.IsAbs(path) || strings.ContainsAny(path, "\x00\r\n") {
-			return errors.New("Windows 客机配置需要绝对本机路径")
+			return errors.New("Конфигурации гостевой системы Windows нужен абсолютный локальный путь")
 		}
 	}
 	if p.NetworkPairingFile != "" && (!filepath.IsAbs(p.NetworkPairingFile) || strings.ContainsAny(p.NetworkPairingFile, "\x00\r\n")) {
-		return errors.New("Windows 客机网络配对需要绝对本机路径")
+		return errors.New("Сетевому сопряжению гостевой системы Windows нужен абсолютный локальный путь")
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func LoadWindowsProfile(root string) (*WindowsProfile, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() == 0 || info.Size() > 16<<10 {
-		return nil, errors.New("Windows 客机配置文件无效")
+		return nil, errors.New("Неверный файл конфигурации гостевой системы Windows")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -86,7 +86,7 @@ func LoadWindowsProfile(root string) (*WindowsProfile, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&binding) != nil || decoder.Decode(new(any)) != io.EOF {
-		return nil, errors.New("Windows 客机配置格式无效")
+		return nil, errors.New("Неверный формат конфигурации гостевой системы Windows")
 	}
 	if err := binding.validate(); err != nil {
 		return nil, err
@@ -119,23 +119,23 @@ func WindowsRelayCommand(ctx context.Context, root, operation string, args ...st
 		return nil, err
 	}
 	if p == nil {
-		return nil, errors.New("此配置尚未绑定 Windows 客机")
+		return nil, errors.New("Эта конфигурация ещё не привязана к гостевой системе Windows")
 	}
 	switch operation {
 	case "headless-status", "headless-terminal", "headless-browser", "headless-safety", "headless-cli":
 		if !p.Remote() {
-			return nil, errors.New("后台终端仅用于 Windows 云端环境")
+			return nil, errors.New("Фоновый терминал доступен только для облачной среды Windows")
 		}
 	case "status", "diagnostics", "versions":
 	case "stream", "import", "export", "terminal", "browser", "desktop", "attachments", "audio", "resources", "safety", "project-mount", "network-stream", "network-settings", "cli", "cache-maintenance":
 		if p.Remote() {
-			return nil, errors.New("Windows 云端仅支持已配对的后台沙箱操作")
+			return nil, errors.New("Облачный Windows поддерживает только сопряжённые фоновые операции песочницы")
 		}
 	default:
-		return nil, errors.New("Windows 客机剪贴板操作无效")
+		return nil, errors.New("Недопустимая операция с буфером обмена гостевой системы Windows")
 	}
 	if len(args) != 0 && !(operation == "export" && len(args) == 1 && args[0] == "--paths-stdin") {
-		return nil, errors.New("Windows 客机文件路径必须通过标准输入传递")
+		return nil, errors.New("Пути файлов гостевой системы Windows должны передаваться через стандартный ввод")
 	}
 	argv := append([]string{"--relay-profile", WindowsProfilePath(root), operation}, args...)
 	return exec.CommandContext(ctx, p.RelayExecutable, argv...), nil

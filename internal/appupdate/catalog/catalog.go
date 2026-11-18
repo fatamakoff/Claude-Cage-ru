@@ -48,7 +48,7 @@ func archiveName(version, goos, goarch string) (string, error) {
 	case goos == "android" && goarch == "arm64":
 		return "Cage-" + version + "-android-arm64.apk", nil
 	default:
-		return "", errors.New("此平台尚无 Cage 应用内更新发行包")
+		return "", errors.New("Для этой платформы пока нет пакета обновления Cage в приложении")
 	}
 }
 
@@ -58,7 +58,7 @@ func Select(releases []Release, current, goos, goarch string) (*Candidate, error
 	}
 	currentTag := "v" + current
 	if !semver.IsValid(currentTag) || semver.Canonical(currentTag) != currentTag {
-		return nil, errors.New("当前应用版本无效，无法安全比较更新")
+		return nil, errors.New("Текущая версия приложения недопустима, безопасно сравнить обновление нельзя")
 	}
 	var best *Candidate
 	for _, r := range releases {
@@ -103,12 +103,12 @@ func Select(releases []Release, current, goos, goarch string) (*Candidate, error
 
 func DigestValue(raw string) (string, error) {
 	if !strings.HasPrefix(raw, "sha256:") {
-		return "", errors.New("发行包缺少有效的 SHA-256 摘要")
+		return "", errors.New("В пакете выпуска нет допустимой сводки SHA-256")
 	}
 	h := strings.TrimPrefix(raw, "sha256:")
 	b, err := hex.DecodeString(h)
 	if err != nil || len(b) != sha256.Size {
-		return "", errors.New("发行包 SHA-256 摘要无效")
+		return "", errors.New("Недопустимая сводка SHA-256 пакета выпуска")
 	}
 	return strings.ToLower(h), nil
 }
@@ -124,7 +124,7 @@ func (c Candidate) SHA256(b []byte) (string, error) {
 	}
 	if c.Checksums.URL == "" {
 		if hash == "" {
-			return "", errors.New("发行包缺少校验信息")
+			return "", errors.New("В пакете выпуска нет данных проверки")
 		}
 		return hash, nil
 	}
@@ -136,12 +136,12 @@ func (c Candidate) SHA256(b []byte) (string, error) {
 		}
 		h, err := DigestValue("sha256:" + fields[0])
 		if err != nil || found != "" {
-			return "", errors.New("发行包校验清单无效或重复")
+			return "", errors.New("Список проверочных сумм пакета недопустим или содержит повторы")
 		}
 		found = h
 	}
 	if found == "" || (hash != "" && hash != found) {
-		return "", errors.New("发行包与校验清单的 SHA-256 不一致")
+		return "", errors.New("SHA-256 пакета выпуска не совпадает со списком проверочных сумм")
 	}
 	return found, nil
 }

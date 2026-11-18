@@ -28,10 +28,10 @@ const macAccountDomain = "Cage shared macOS account v1"
 
 func validMacAccount(name, password string) error {
 	if !guestos.ValidMacOSAccountName(name) {
-		return errors.New("macOS 共用用户名需以小写英文字母开头，使用 1–31 个小写字母、数字或下划线；不能使用系统保留名称")
+		return errors.New("Имя общей учётной записи macOS должно начинаться со строчной латинской буквы и состоять из 1–31 строчных букв, цифр или подчёркиваний; системные зарезервированные имена использовать нельзя")
 	}
 	if !guestos.ValidMacOSInstallPassword(password) {
-		return errors.New("macOS 共用密码需使用 8–256 个英文键盘可输入的字母、数字、空格或符号")
+		return errors.New("Общий пароль macOS должен состоять из 8–256 символов, вводимых с английской клавиатуры: букв, цифр, пробелов или знаков")
 	}
 	return nil
 }
@@ -66,24 +66,24 @@ func (a *localAccount) openMacAccount() (macAccountData, error) {
 func openMacAccountKey(record *accountRecord, key []byte) (macAccountData, error) {
 	var login macAccountData
 	if len(key) != 32 || record == nil {
-		return login, errors.New("请先解锁 Cage")
+		return login, errors.New("Сначала разблокируйте Cage")
 	}
 	if record.MacLogin == nil {
-		return login, errors.New("请先确认 Cage 用户名和密码，再安装 macOS 客机")
+		return login, errors.New("Сначала задайте имя пользователя и пароль Cage, затем устанавливайте гостевую macOS")
 	}
 	block, _ := aes.NewCipher(key)
 	aead, _ := cipher.NewGCM(block)
 	sealed := record.MacLogin
 	if len(sealed.Nonce) != aead.NonceSize() {
-		return login, errors.New("客机共用凭据损坏，请恢复账户备份")
+		return login, errors.New("Общие учётные данные гостевой системы повреждены. Восстановите резервную копию аккаунта")
 	}
 	plain, err := aead.Open(nil, sealed.Nonce, sealed.Data, []byte(macAccountDomain))
 	if err != nil {
-		return login, errors.New("客机共用凭据无法解密，请恢复账户备份")
+		return login, errors.New("Не удалось расшифровать общие учётные данные гостевой системы. Восстановите резервную копию аккаунта")
 	}
 	defer clear(plain)
 	if json.Unmarshal(plain, &login) != nil || validMacAccount(record.Username, login.Password) != nil {
-		return login, errors.New("客机共用凭据无效，请恢复账户备份")
+		return login, errors.New("Общие учётные данные гостевой системы недействительны. Восстановите резервную копию аккаунта")
 	}
 	return login, nil
 }
@@ -98,14 +98,14 @@ func (a *localAccount) prepareMacAccount(name, password string, guests map[strin
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if len(a.key) != 32 || a.record == nil {
-		return errors.New("请先解锁 Cage")
+		return errors.New("Сначала разблокируйте Cage")
 	}
 	if a.record.MacLogin != nil {
-		return errors.New("共用账密已经设置，请在账户设置中修改密码")
+		return errors.New("Общие логин и пароль уже заданы. Измените пароль в настройках аккаунта")
 	}
 	if a.record.TrustedDevice == "" {
 		if time.Now().Before(a.nextAttempt) {
-			return errors.New("请稍后再试")
+			return errors.New("Повторите позже")
 		}
 		key, err := openAccountKey(a.record, password)
 		if err != nil {
@@ -124,7 +124,7 @@ func (a *localAccount) prepareMacAccount(name, password string, guests map[strin
 		return err
 	}
 	if err := writePrivate(a.path, &record); err != nil {
-		return errors.New("共用账密未能保存，原账户和文件已保留")
+		return errors.New("Общие логин и пароль не сохранены; исходный аккаунт и файлы сохранены")
 	}
 	a.record, a.trustedSession = &record, false
 	return nil
@@ -135,7 +135,7 @@ func (a *localAccount) macGuestCredentials(ctx context.Context, id uuid.UUID) (m
 		return macGuestCredential{}, ctx.Err()
 	}
 	if id == uuid.Nil {
-		return macGuestCredential{}, errors.New("缺少客机安装身份")
+		return macGuestCredential{}, errors.New("Отсутствует идентификатор установки гостевой системы")
 	}
 	a.mu.Lock()
 	if a.record != nil && a.record.MacLogin != nil {
@@ -180,7 +180,7 @@ func (a *localAccount) macGuestCredentials(ctx context.Context, id uuid.UUID) (m
 		return macGuestCredential{}, err
 	}
 	if err = writePrivate(a.path, &record); err != nil {
-		return macGuestCredential{}, errors.New("客机账密未能保存，请检查磁盘空间与目录权限")
+		return macGuestCredential{}, errors.New("Логин и пароль гостевой системы не сохранены. Проверьте свободное место на диске и права на каталог")
 	}
 	a.record = &record
 	return guest, nil
@@ -189,7 +189,7 @@ func (a *localAccount) savedMacGuestPassword(ctx context.Context, id uuid.UUID) 
 	a.mu.Lock()
 	if len(a.key) != 32 || ctx.Err() != nil {
 		a.mu.Unlock()
-		return "", errors.New("请先解锁 Cage")
+		return "", errors.New("Сначала разблокируйте Cage")
 	}
 	if a.record.MacLogin != nil {
 		login, err := a.openMacAccount()
@@ -245,7 +245,7 @@ func (a *localAccount) syncMacPasswordStep(ctx context.Context, id uuid.UUID, us
 	}
 	if guest.Username != user {
 		a.mu.Unlock()
-		return false, errors.New("客机同步账户与安装记录不一致，原账户已保留")
+		return false, errors.New("Учётная запись синхронизации гостевой системы не совпадает с записью установки; исходный аккаунт сохранён")
 	}
 	target := login.Password
 	if guest.PendingPassword != "" {
@@ -253,7 +253,7 @@ func (a *localAccount) syncMacPasswordStep(ctx context.Context, id uuid.UUID, us
 	}
 	a.mu.Unlock()
 	if err = apply(ctx, guest.Password, target); err != nil {
-		return false, errors.New("Cage 密码已保存；客机密码尚待同步，请启动客机后重试，期间客机仍可能需要原密码")
+		return false, errors.New("Пароль Cage сохранён; пароль гостевой системы ещё не синхронизирован. Запустите гостевую систему и повторите — до этого ей может понадобиться прежний пароль")
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -263,7 +263,7 @@ func (a *localAccount) syncMacPasswordStep(ctx context.Context, id uuid.UUID, us
 	}
 	current, ok := login.Guests[id.String()]
 	if !ok || current != guest || guest.PendingPassword == "" && login.Password != target {
-		return false, errors.New("客机密码同步记录已变化，请重试")
+		return false, errors.New("Запись синхронизации пароля гостевой системы изменилась. Повторите")
 	}
 	current.Password = target
 	current.PendingPassword = ""
@@ -273,7 +273,7 @@ func (a *localAccount) syncMacPasswordStep(ctx context.Context, id uuid.UUID, us
 		return false, err
 	}
 	if err = writePrivate(a.path, &record); err != nil {
-		return false, errors.New("客机密码已更新，确认记录待保存；下次启动会重试确认")
+		return false, errors.New("Пароль гостевой системы обновлён, запись подтверждения ещё не сохранена; подтверждение повторится при следующем запуске")
 	}
 	a.record = &record
 	return true, nil

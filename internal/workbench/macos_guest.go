@@ -74,15 +74,15 @@ func (s *Server) macOSSSHCommand(ctx context.Context, args ...string) *exec.Cmd 
 
 func (s *Server) checkMacOSGuest(ctx context.Context) error {
 	if !s.vmRunning() {
-		return errors.New("macOS 客机尚未启动")
+		return errors.New("Гостевая система macOS ещё не запущена")
 	}
 	client, err := s.gateClient()
 	if err != nil {
-		return errors.New("无法验证 macOS 客机的网络隔离状态")
+		return errors.New("Не удалось проверить состояние сетевой изоляции гостевой системы macOS")
 	}
 	state, err := client.Status(ctx)
 	if err != nil {
-		return errors.New("无法验证 macOS 客机的网络门槛")
+		return errors.New("Не удалось проверить сетевой шлюз гостевой системы macOS")
 	}
 	if state.Mode != cage.GateClosed {
 		s.mu.Lock()
@@ -91,21 +91,21 @@ func (s *Server) checkMacOSGuest(ctx context.Context) error {
 		reason := ""
 		switch {
 		case s.macSetupPending():
-			reason = "首次系统设置期间外网关闭"
+			reason = "Внешняя сеть закрыта на время первичной настройки системы"
 		case paused:
-			reason = "网络保持暂停，请手动恢复后再联网"
+			reason = "Сеть остаётся приостановленной; восстановите её вручную перед подключением"
 		case !ready:
-			reason = "客机重新连接，外网等待重新检查"
+			reason = "Гостевая система переподключилась, внешняя сеть ожидает повторной проверки"
 		default:
 			cfg, cfgErr := loadConfig(s.configPath)
 			if state.Mode != cage.GateOpen || cfgErr != nil || state.Report == nil || !time.Now().Before(state.Until) || state.Report.Authorizes(state.RunID, cfg.Fingerprint(), time.Now()) != nil {
-				reason = "网络授权未通过当前配置的完整检查"
+				reason = "Сетевое разрешение не прошло полную проверку текущей конфигурации"
 			}
 		}
 		if reason != "" {
 			state, err = client.Close(ctx, reason)
 			if err != nil || state.Mode != cage.GateClosed {
-				return errors.New("macOS 客机网络状态不能确认")
+				return errors.New("Состояние сети гостевой системы macOS не подтверждено")
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func (s *Server) checkMacOSGuest(ctx context.Context) error {
 		probe = `/usr/local/libexec/cage-guest-check --expect ` + shellescape.Quote(s.macosGuest.UUID) + ` && test "$(id -un)" = ` + shellescape.Quote(s.macosGuest.User) + ` && [[ " $(id -Gn) " != *" admin "* ]]`
 	}
 	if _, err := s.guest(ctx, probe); err != nil {
-		return errors.New("无法以已绑定的普通用户连接到这台虚拟 Mac，请检查客机身份和 SSH 登录")
+		return errors.New("Не удалось подключиться к этому виртуальному Mac от привязанного обычного пользователя; проверьте учётные данные гостевой системы и вход по SSH")
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ except (ValueError, AttributeError):
     print("null")
 ' "$receipt"`
 
-var errMacOSComponentUpdate = errors.New("虚拟 Mac 的客机组件与当前 Cage 版本不一致，浏览器、剪贴板和声音可能无法连接。请保存工作后在环境设置中同步环境组件；系统磁盘、账户和项目数据会保留。")
+var errMacOSComponentUpdate = errors.New("Компоненты гостевой системы виртуального Mac не соответствуют текущей версии Cage; браузер, буфер обмена и звук могут не подключиться. Сохраните работу и синхронизируйте компоненты среды в настройках среды; системный диск, аккаунты и данные проектов сохранятся.")
 
 // macOSComponentsDrifted reports whether a receipt read from the guest belongs
 // to a different component kit. A missing or unreadable receipt also requires
@@ -219,7 +219,7 @@ func (s *Server) macOSLifecycleCommand(action string) error {
 	job := s.jobs.execution()
 	cmd.Stdout, cmd.Stderr = job, job
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("macOS 客机操作失败（%s）：%w", action, err)
+		return fmt.Errorf("Операция с гостевой системой macOS не удалась (%s): %w", action, err)
 	}
 	return nil
 }
@@ -245,13 +245,13 @@ var macOSLocaleScript string
 func (s *Server) syncMacOSRegion(ctx context.Context, cfg cage.Config) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	s.setMessage("正在应用 macOS 客机账户的地区与语言…")
+	s.setMessage("Применяются регион и язык аккаунта гостевой системы macOS…")
 	locale := strings.TrimSuffix(cfg.Locale, ".UTF-8")
 	cmd := shellescape.QuoteCommand([]string{"/bin/bash", "-c", macOSLocaleScript, "cage-locale", "NSGlobalDomain", locale})
 	if _, err := s.guest(ctx, "exec "+cmd); err != nil {
-		return fmt.Errorf("macOS 客机已启动，未能写入客机账户的地区与语言：%w", err)
+		return fmt.Errorf("Гостевая система macOS запущена, но записать регион и язык её аккаунта не удалось: %w", err)
 	}
-	s.setMessage("正在等候 macOS 客机读回已保存的时区与语言…")
+	s.setMessage("Ожидание чтения сохранённых часового пояса и языка гостевой системой macOS…")
 	var last guestObservation
 	for {
 		got, err := s.macOSGuestObservation(ctx, map[string]any{"stage": "environment"})
@@ -266,7 +266,7 @@ func (s *Server) syncMacOSRegion(ctx context.Context, cfg cage.Config) error {
 			if errors.Is(ctx.Err(), context.Canceled) {
 				return ctx.Err()
 			}
-			return fmt.Errorf("macOS 客机的时区和语言尚未全部生效。期望 %s、%s，系统读回时区 %q、地区 %q、首选语言 %q，进程读回 %q、%q。外网保持关闭。可稍后重检，时区持续不符时请停止并重新启动客机。", cfg.Timezone, cfg.Locale, last.SystemTimezone, last.SystemLocale, last.SystemLanguage, last.TZ, last.ProcessLocale)
+			return fmt.Errorf("Часовой пояс и язык гостевой системы macOS ещё не вступили в силу полностью. Ожидалось %s, %s; система вернула часовой пояс %q, регион %q, основной язык %q; процесс вернул %q, %q. Внешняя сеть остаётся закрытой. Повторите проверку позже; если часовой пояс по-прежнему не совпадает, остановите и перезапустите гостевую систему.", cfg.Timezone, cfg.Locale, last.SystemTimezone, last.SystemLocale, last.SystemLanguage, last.TZ, last.ProcessLocale)
 		case <-time.After(time.Second):
 		}
 	}

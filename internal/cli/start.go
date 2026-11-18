@@ -532,7 +532,7 @@ func (s *start) ensureRunningLocked() error {
 			currentRoot = currentRoot || paths.Equal(paths.Host(mount.Location), paths.Host(s.dir)) && mount.MountPoint == paths.Guest(s.dir)
 		}
 		if !currentRoot {
-			s.warnf("下载目录与运行中的文件共享不一致。请先保存工作，运行 cage stop 后重新启动；项目文件、会话和登录状态会保留。")
+			s.warnf("Каталог загрузок не совпадает с общим доступом к файлам работающей среды. Сохраните работу, выполните cage stop и запустите снова; файлы проекта, сессии и состояние входа сохранятся.")
 			return errStop
 		}
 	}

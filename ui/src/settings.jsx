@@ -38,16 +38,16 @@ import { ScreenSharingChecks } from "./macos-screen-sharing";
 import { AccountSettings } from "./account";
 import { AboutSettings } from "./about-settings";
 const sections = [
-  ["account", "账户", UserRound],
-  ["vault", "密码保险箱", KeyRound],
-  ["archived-sessions", "已归档会话", Archive],
-  ["keyboard", "通用", Settings],
-  ["appearance", "外观", Palette],
-  ["mobile", "远程连接", Smartphone],
-  ["network", "网络与代理", Globe2],
-  ["region", "时区与语言", Clock3],
-  ["project", "环境与恢复", RotateCcw],
-  ["about", "关于", Info],
+  ["account", "Аккаунт", UserRound],
+  ["vault", "Хранилище паролей", KeyRound],
+  ["archived-sessions", "Архив сессий", Archive],
+  ["keyboard", "Общие", Settings],
+  ["appearance", "Внешний вид", Palette],
+  ["mobile", "Удалённое подключение", Smartphone],
+  ["network", "Сеть и прокси", Globe2],
+  ["region", "Часовой пояс и язык", Clock3],
+  ["project", "Среда и восстановление", RotateCcw],
+  ["about", "О программе", Info],
 ];
 export function SettingsPanel({
   current,
@@ -112,9 +112,9 @@ export function SettingsPanel({
     if (
       (!changed && !accountDirty && !proxyDirty && !resourceDirty) ||
       (await onConfirm({
-        title: "放弃尚未保存的修改？",
-        body: "当前环境不会改变。关闭后会丢弃这次表单修改。",
-        confirm: "放弃修改",
+        title: "Отменить несохранённые изменения?",
+        body: "Текущая среда не изменится. При закрытии изменения формы будут потеряны.",
+        confirm: "Отменить изменения",
       }))
     )
       onClose();
@@ -159,9 +159,9 @@ export function SettingsPanel({
       environmentChanged &&
       status.vm_running &&
       !(await onConfirm({
-        title: "应用设置并重启环境？",
-        body: "请先保存编辑器中的文件。当前终端会话会结束，浏览器的页面和登录状态将保留。",
-        confirm: "保存并重启",
+        title: "Применить настройки и перезапустить среду?",
+        body: "Сначала сохраните файлы в редакторе. Текущие сессии терминала завершатся, страницы и входы в браузере сохранятся.",
+        confirm: "Сохранить и перезапустить",
       }))
     )
       return;
@@ -214,7 +214,7 @@ export function SettingsPanel({
     };
   }, []);
   return (
-    <section className="settings-page" aria-label="设置">
+    <section className="settings-page" aria-label="Настройки">
       <aside className="settings-sidebar">
         <button
           id="settings-back"
@@ -222,18 +222,18 @@ export function SettingsPanel({
           onClick={close}
         >
           <ArrowLeft size={17} />
-          返回工作台
+          Вернуться в рабочую область
         </button>
-        <h2>设置</h2>
-        <nav aria-label="设置分组">
+        <h2>Настройки</h2>
+        <nav aria-label="Разделы настроек">
           {sections.map(([id, label, Icon]) => (
             <button
               key={id}
               className={section === id ? "selected" : ""}
               aria-current={section === id ? "page" : undefined}
               onClick={async () => {
-                if (id !== section && accountDirty && !(await onConfirm({ title: "放弃尚未保存的修改？", body: "已保存的资料和密码保持不变。", confirm: "放弃修改" }))) return;
-                if (id !== section && proxyDirty && !(await onConfirm({ title: "放弃尚未应用的代理修改？", body: "当前代理仍按已应用的链路运行。离开会丢弃这次节点选择。", confirm: "放弃修改" }))) return;
+                if (id !== section && accountDirty && !(await onConfirm({ title: "Отменить несохранённые изменения?", body: "Сохранённые данные и пароли останутся без изменений.", confirm: "Отменить изменения" }))) return;
+                if (id !== section && proxyDirty && !(await onConfirm({ title: "Отменить неприменённые изменения прокси?", body: "Прокси продолжает работать по применённой цепочке. При уходе выбор узлов будет потерян.", confirm: "Отменить изменения" }))) return;
                 setSection(id);
               }}
             >
@@ -252,7 +252,7 @@ export function SettingsPanel({
           {section === "account" && <AccountSettings busy={busy} onDirty={setAccountDirty} />}
           <fieldset className="settings-fields" disabled={busy && !(section === "project" && status.storage_recovery?.required)}>
             {section === "mobile" && (isRemoteClient()
-              ? <section className="section-title"><h3>连接这台电脑</h3><p>请先切换到这台电脑的本机环境，再生成或管理手机配对码。</p></section>
+              ? <section className="section-title"><h3>Подключить этот компьютер</h3><p>Сначала переключитесь на локальную среду этого компьютера, затем создайте код сопряжения или управляйте им.</p></section>
               : <MobilePairSettings relay={draft.mobile_relay ?? ""} savedRelay={current.mobile_relay ?? ""} onChange={value => update("mobile_relay",value)} onConfirm={onConfirm} />)}
             {section === "network" && (
               <>
@@ -271,7 +271,7 @@ export function SettingsPanel({
                   }}
                 />
                 <label>
-                  加密 DNS
+                  Зашифрованный DNS
                   <input
                     value={draft.dns_url}
                     onChange={(e) => update("dns_url", e.target.value)}
@@ -285,9 +285,9 @@ export function SettingsPanel({
                     ) : (
                       <Globe2 size={15} />
                     )}
-                    验证出口
+                    Проверить выход
                   </button>
-                  <span>通过当前节点查询 IP 和位置</span>
+                  <span>Запросить IP и местоположение через текущий узел</span>
                 </div>
                 {currentLoc && (
                   <div className={`location-result ${probe ? "fresh" : ""}`}>
@@ -302,19 +302,19 @@ export function SettingsPanel({
                       <small>
                         {currentLoc.timezone} ·{" "}
                         {new Date(currentLoc.checked_at).toLocaleTimeString(
-                          "zh-CN",
+                          "ru-RU",
                           { hour: "2-digit", minute: "2-digit" },
                         )}{" "}
-                        {probe ? "验证通过" : "当前环境 · 最近检测"}
+                        {probe ? "Проверено" : "Текущая среда · последняя проверка"}
                       </small>
                     </div>
                     {probe && <Check size={18} />}
                   </div>
                 )}
                 <p className="footnote">
-                  代理不可用时，Cage 会停止对外联网。修改表单后需要重新验证。
+                  Если прокси недоступен, Cage останавливает выход в интернет. После изменения формы требуется повторная проверка.
                 </p>
-                <section className="network-exit-policy" aria-label="IP 变化规则">
+                <section className="network-exit-policy" aria-label="Правила смены IP">
                   <ExitPolicyFields
                     value={draft.exit_policy}
                     onChange={(value) => update("exit_policy", value)}
@@ -329,19 +329,19 @@ export function SettingsPanel({
             {section === "region" && (
               <>
                 <div className="section-title">
-                  <h3>时区与语言</h3>
-                  <p>这些设置作用于 Cage 内的系统、CLI 和浏览器。</p>
+                  <h3>Часовой пояс и язык</h3>
+                  <p>Эти настройки действуют на систему, CLI и браузер внутри Cage.</p>
                 </div>
                 {!draft.auto_timezone && !draft.auto_language && (
                   <p className="field-help">
-                    时区和语言将使用下方手动选择的值。所有出口仍须查询国家或地区，确认不属于中国大陆；静态 IP 和不限地区也不能跳过此检查。
+                    Часовой пояс и язык берутся из выбранных ниже значений вручную. Для каждого выхода всё равно нужно запрашивать страну или регион и убедиться, что это не материковый Китай; статический IP и отсутствие ограничений по региону не отменяют эту проверку.
                   </p>
                 )}
                 <label className="toggle-row">
                   <span>
-                    <strong>跟随出口 IP 的时区</strong>
+                    <strong>Часовой пояс по IP выхода</strong>
                     <small>
-                      在启动或应用设置时重新查询，不会静默重启正在运行的任务。
+                      Повторный запрос при запуске или применении настроек; работающие задачи не перезапускаются незаметно.
                     </small>
                   </span>
                   <input
@@ -352,9 +352,9 @@ export function SettingsPanel({
                   />
                 </label>
                 <label>
-                  {draft.auto_timezone ? "将应用的时区" : "系统时区"}
+                  {draft.auto_timezone ? "Применяемый часовой пояс" : "Часовой пояс системы"}
                   <InlineSelect editable
-                    aria-label={draft.auto_timezone ? "将应用的时区" : "系统时区"}
+                    aria-label={draft.auto_timezone ? "Применяемый часовой пояс" : "Часовой пояс системы"}
                     value={draft.timezone}
                     disabled={draft.auto_timezone}
                     onValueChange={(next) => update("timezone", next)}
@@ -369,23 +369,23 @@ export function SettingsPanel({
                     <Clock3 size={16} />
                     <span>
                       {probe
-                        ? `出口建议时区：${probe.timezone}，保存时应用。`
-                        : "保存时经代理查询所在地；查询失败会保留原配置。"}
+                        ? `Рекомендуемый часовой пояс выхода: ${probe.timezone}, применится при сохранении.`
+                        : "При сохранении местоположение запрашивается через прокси; при ошибке запроса прежняя конфигурация сохраняется."}
                     </span>
                     <button
                       className="text-button"
                       onClick={check}
                       disabled={busy}
                     >
-                      现在检测
+                      Проверить сейчас
                     </button>
                   </div>
                 )}
                 <label className="toggle-row">
                   <span>
-                    <strong>跟随出口地区的语言建议</strong>
+                    <strong>Язык по региону выхода</strong>
                     <small>
-                      启动或应用设置时更新。多语言地区使用内置默认值；没有建议时保留已选语言。
+                      Обновляется при запуске или применении настроек. Для многоязычных регионов используются встроенные значения по умолчанию; при отсутствии рекомендации выбранный язык сохраняется.
                     </small>
                   </span>
                   <input
@@ -400,30 +400,30 @@ export function SettingsPanel({
                     <Globe2 size={16} />
                     <span>
                       {currentLoc?.suggested_locale
-                        ? `地区建议：${currentLoc.suggested_locale} / ${currentLoc.suggested_browser_language}`
-                        : "检测出口后获取地区建议，也可以关闭自动并手动选择。"}
+                        ? `Рекомендация региона: ${currentLoc.suggested_locale} / ${currentLoc.suggested_browser_language}`
+                        : "Рекомендация региона появится после проверки выхода; также можно отключить авторежим и выбрать вручную."}
                     </span>
                     <button
                       className="text-button"
                       onClick={check}
                       disabled={busy}
                     >
-                      现在检测
+                      Проверить сейчас
                     </button>
                   </div>
                 )}
                 <label>
-                  系统语言
+                  Язык системы
                   <InlineSelect
-                    aria-label="系统语言"
+                    aria-label="Язык системы"
                     value={draft.locale}
                     disabled={draft.auto_language}
                     onValueChange={(next) => update("locale", next)}
                   >
                     {[
                       ["en_US.UTF-8", "English (United States)"],
-                      ["zh_CN.UTF-8", "简体中文"],
-                      ["zh_TW.UTF-8", "繁體中文"],
+                      ["zh_CN.UTF-8", "Китайский (упрощённый)"],
+                      ["zh_TW.UTF-8", "Китайский (традиционный)"],
                       ["ja_JP.UTF-8", "日本語"],
                       ["de_DE.UTF-8", "Deutsch"],
                       ["fr_FR.UTF-8", "Français"],
@@ -445,17 +445,17 @@ export function SettingsPanel({
                   </InlineSelect>
                 </label>
                 <label>
-                  网页首选语言
+                  Предпочитаемый язык веб-страниц
                   <InlineSelect
-                    aria-label="网页首选语言"
+                    aria-label="Предпочитаемый язык веб-страниц"
                     value={draft.browser_language}
                     disabled={draft.auto_language}
                     onValueChange={(next) => update("browser_language", next)}
                   >
                     {[
                       ["en-US", "English (United States)"],
-                      ["zh-CN", "简体中文"],
-                      ["zh-TW", "繁體中文"],
+                      ["zh-CN", "Китайский (упрощённый)"],
+                      ["zh-TW", "Китайский (традиционный)"],
                       ["ja-JP", "日本語"],
                       ["de-DE", "Deutsch"],
                       ["fr-FR", "Français"],
@@ -479,32 +479,32 @@ export function SettingsPanel({
                   </InlineSelect>
                 </label>
                 <p className="footnote">
-                  网页仍可按自己的规则选择语言。工作台界面使用中文。
+                  Страницы по-прежнему могут выбирать язык по своим правилам. Интерфейс рабочей области — на русском.
                 </p>
               </>
             )}
             {section === "keyboard" && (
               <>
                 <div className="section-title">
-                  <h3>通用</h3>
-                  <p>管理工作台的按键习惯与日常操作。</p>
+                  <h3>Общие</h3>
+                  <p>Управление поведением клавиш и повседневными действиями рабочей области.</p>
                 </div>
                 <label>
-                  时间显示格式
+                  Формат времени
                   <InlineSelect inline
-                    aria-label="时间显示格式"
+                    aria-label="Формат времени"
                     value={draft.clock_12_hour ? "12" : "24"}
                     onValueChange={(next) => update("clock_12_hour", next === "12")}
                   >
-                    <option value="24">24 小时制</option>
-                    <option value="12">12 小时制（AM/PM）</option>
+                    <option value="24">24-часовой формат</option>
+                    <option value="12">12-часовой формат (AM/PM)</option>
                   </InlineSelect>
                 </label>
                 <p className="field-help">
-                  默认使用 24 小时制。保存后更新工作台底部时钟，无需重启环境；12 小时制使用 AM/PM 区分上午和下午。
+                  По умолчанию используется 24-часовой формат. После сохранения обновляются часы внизу рабочей области без перезапуска среды; 12-часовой формат различает утро и вечер по AM/PM.
                 </p>
                 <label>
-                  Claude 终端启动命令
+                  Команда запуска терминала Claude
                   <input
                     value={draft.claude_terminal_command ?? "claude"}
                     onChange={(e) => update("claude_terminal_command", e.target.value)}
@@ -515,37 +515,37 @@ export function SettingsPanel({
                   />
                 </label>
                 <p className="field-help">
-                  选择“Claude 终端”后，在所选项目中运行此命令，例如 claude --continue。
-                  留空使用 claude；保存后仅影响新建的 Claude 终端，退出 Claude 后可继续使用 shell。
+                  После выбора «Терминал Claude» эта команда выполняется в выбранном проекте, например claude --continue.
+                  Если оставить пустым, используется claude; после сохранения это влияет только на новые терминалы Claude, и после выхода из Claude можно продолжить работу в shell.
                 </p>
                 {typeof current.balanced_display === "boolean" && <label className="toggle-row">
                   <span>
-                    <strong>优先流畅</strong>
-                    <small>降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。下次启动环境时生效。</small>
+                    <strong>Приоритет плавности</strong>
+                    <small>Снижает чёткость браузера и Claude Desktop; в среде Linux также уменьшает анимацию Claude Desktop. Применяется при следующем запуске среды.</small>
                   </span>
                   <input type="checkbox" role="switch" checked={draft.balanced_display}
                     onChange={(event) => update("balanced_display", event.target.checked)} />
                 </label>}
                 {typeof current.project_file_cache === "boolean" && linuxGuest && <label className="toggle-row">
                   <span>
-                    <strong>项目文件缓存</strong>
-                    <small>减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。下次启动环境时生效。</small>
+                    <strong>Кэш файлов проекта</strong>
+                    <small>Сокращает обмен с хостом при чтении файлов проекта. Изменения, сделанные на хосте, становятся видны в среде не позднее чем через 20 секунд; также можно нажать «Обновить файлы проекта» на панели проекта для немедленной синхронизации. Применяется при следующем запуске среды.</small>
                   </span>
                   <input type="checkbox" role="switch" checked={draft.project_file_cache}
                     onChange={(event) => update("project_file_cache", event.target.checked)} />
                 </label>}
-                <h4>键盘习惯</h4>
+                <h4>Поведение клавиш</h4>
                 <div className="choice-list">
                   {[
                     [
                       "mac",
-                      "Mac 快捷键",
-                      "使用 ⌘ 操作网页和编辑器。Linux、Windows 客机使用对应的 Ctrl 快捷键，macOS 客机保留 Command。",
+                      "Сочетания Mac",
+                      "Использовать ⌘ для веб-страниц и редактора. В гостевых системах Linux и Windows используются соответствующие сочетания с Ctrl, в гостевой macOS сохраняется Command.",
                     ],
                     [
                       "native",
-                      "客机原生快捷键",
-                      "按客机系统的习惯使用 Control、Command 和其他组合键。",
+                      "Родные сочетания гостевой системы",
+                      "Использовать Control, Command и другие сочетания по правилам гостевой системы.",
                     ],
                   ].map(([value, title, help]) => (
                     <label
@@ -560,7 +560,7 @@ export function SettingsPanel({
                         onChange={() => {
                           if (!isRemoteClient()) { update("keyboard", value); return; }
                           try { saveClientKeyboard(value); setLocalKeyboard(value); setError(""); }
-                          catch { setError("未能保存本机键盘习惯，请检查本地存储空间。"); }
+                          catch { setError("Не удалось сохранить поведение клавиатуры на этом компьютере. Проверьте свободное место в локальном хранилище."); }
                         }}
                       />
                       <span>
@@ -571,19 +571,19 @@ export function SettingsPanel({
                   ))}
                 </div>
                 <p className="field-help">
-                  终端使用 {usesControl ? "Ctrl+Shift+C / Ctrl+Shift+V" : "⌘C / ⌘V"} 复制粘贴；Ctrl+C 始终用于中断命令。
-                  {isRemoteClient() && "键盘习惯立即生效，仅保存在当前客户端，不修改云端设置。"}
+                  В терминале копирование и вставка — {usesControl ? "Ctrl+Shift+C / Ctrl+Shift+V" : "⌘C / ⌘V"}; Ctrl+C всегда прерывает команду.
+                  {isRemoteClient() && "Поведение клавиатуры применяется сразу и сохраняется только на этом клиенте, не изменяя облачные настройки."}
                 </p>
-                <h4>工作台快捷键</h4>
+                <h4>Сочетания клавиш рабочей области</h4>
                 <div className="shortcut-list">
                   {[
-                    ["打开项目", "⌘O"],
-                    ["新建网页", "⌘T"],
-                    ["新建终端", "⌘⇧↵"],
-                    ["地址栏", "⌘L"],
-                    ["关闭当前标签", "⌘W"],
-                    ["切换标签", "⌘1–9"],
-                    ["设置", "⌘,"],
+                    ["Открыть проект", "⌘O"],
+                    ["Новая веб-страница", "⌘T"],
+                    ["Новый терминал", "⌘⇧↵"],
+                    ["Адресная строка", "⌘L"],
+                    ["Закрыть текущую вкладку", "⌘W"],
+                    ["Переключить вкладку", "⌘1–9"],
+                    ["Настройки", "⌘,"],
                   ].map(([label, key]) => (
                     <div key={label}>
                       <span>{label}</span>
@@ -596,42 +596,42 @@ export function SettingsPanel({
             {section === "project" && (
               <>
                 <div className="section-title">
-                  <h3>环境与恢复</h3>
-                  <p>{isRemoteClient() ? "项目位于云端，Cage 中的改动会直接保存到云端文件。" : "本机与 Cage 中的改动会双向同步。"}</p>
+                  <h3>Среда и восстановление</h3>
+                  <p>{isRemoteClient() ? "Проект находится в облаке, изменения в Cage сразу сохраняются в облачные файлы." : "Изменения на хосте и в Cage синхронизируются в обе стороны."}</p>
                 </div>
                 {status.local_vm_storage && !isRemoteClient() && <EnvironmentStorage status={status} onConfirm={onConfirm} />}
                 <div className="setting-summary-row">
-                  <span>当前项目</span>
+                  <span>Текущий проект</span>
                   <strong title={current.workspace}>
-                    {current.workspace || "尚未选择项目"}
+                    {current.workspace || "Проект не выбран"}
                   </strong>
                 </div>
                 <p className="field-help">
-                  {isRemoteClient() ? "点击侧栏“项目”标题旁的加号，可浏览并选择云端文件夹。" : "点击侧栏“项目”标题旁的加号，可选择其他本地文件夹。"}
+                  {isRemoteClient() ? "Нажмите плюс рядом с заголовком «Проект» на боковой панели, чтобы выбрать облачную папку." : "Нажмите плюс рядом с заголовком «Проект» на боковой панели, чтобы выбрать другую локальную папку."}
                 </p>
                 <div className="project-explanation">
                   <FolderOpen size={22} />
                   <div>
-                    <strong>所有项目共用一个 Cage 环境</strong>
+                    <strong>Все проекты используют одну среду Cage</strong>
                     <p>
-                      明确打开的项目文件夹会共享到同一个环境。主机的 Claude
-                      登录、SSH 密钥和个人配置不会自动导入。浏览器下载统一保存到
-                      独立的下载暂存目录，可从下载面板查看或另存为。
+                      Явно открытые папки проектов становятся доступны в одной среде. Вход в Claude на хосте,
+                      SSH-ключи и личные настройки не импортируются автоматически. Загрузки браузера
+                      сохраняются в отдельный временный каталог загрузок; их можно открыть или сохранить из панели загрузок.
                     </p>
                   </div>
                 </div>
                 <p className="footnote">
-                  切换项目只改变新终端和文件编辑器的起始位置；已有终端、网页和登录态会保留。
+                  Переключение проекта меняет только начальное расположение новых терминалов и файлового редактора; существующие терминалы, страницы и сеансы входа сохраняются.
                 </p>
                 {!status.storage_recovery?.required && <EnvironmentVersions status={status} onConfirm={onConfirm} />}
                 {!status.storage_recovery?.required && <EnvironmentCache status={status} onConfirm={onConfirm} />}
-                {status.guest_system === "macos" && <section aria-label="客机系统权限">
-                  <h4>客机系统权限</h4>
-                  <p className="field-help">在受限的客机系统设置窗口中完成授权，Cage 会自动检查并重新连接项目。</p>
+                {status.guest_system === "macos" && <section aria-label="Разрешения гостевой системы">
+                  <h4>Разрешения гостевой системы</h4>
+                  <p className="field-help">Выполните авторизацию в ограниченном окне настроек гостевой системы; Cage автоматически проверит и переподключит проект.</p>
                   <div className="project-recovery-actions">
-                    <MacOSLogin maintenance="projects" label="文件共享权限" disabled={!status.ready || busy} />
-                    <MacOSLogin maintenance="screen" label="屏幕录制权限" disabled={!status.ready || busy} />
-                    <MacOSLogin maintenance="input" label="辅助功能权限" disabled={!status.ready || busy} />
+                    <MacOSLogin maintenance="projects" label="Доступ к общим файлам" disabled={!status.ready || busy} />
+                    <MacOSLogin maintenance="screen" label="Запись экрана" disabled={!status.ready || busy} />
+                    <MacOSLogin maintenance="input" label="Универсальный доступ" disabled={!status.ready || busy} />
                   </div>
                 </section>}
                 {status.guest_system === "macos" && !isRemoteClient() && <MacOSScreenSharingSettings disabled={!status.ready || busy} onError={setError} />}
@@ -644,9 +644,9 @@ export function SettingsPanel({
                     onClick={async () => {
                       if (
                         await onConfirm({
-                          title: "恢复上一份配置？",
-                          body: "会停止当前环境并恢复上次应用前的设置。已经结束的终端进程无法恢复。",
-                          confirm: "恢复并重启",
+                          title: "Восстановить предыдущую конфигурацию?",
+                          body: "Текущая среда будет остановлена и восстановятся настройки, действовавшие до последнего применения. Завершённые процессы терминала восстановить нельзя.",
+                          confirm: "Восстановить и перезапустить",
                         })
                       ) {
                         try {
@@ -659,7 +659,7 @@ export function SettingsPanel({
                     }}
                   >
                     <RotateCcw size={14} />
-                    恢复上一份配置
+                    Восстановить предыдущую конфигурацию
                   </button>
                 )}
               </>
@@ -683,7 +683,7 @@ export function SettingsPanel({
                     setSection("region");
                   }}
                 >
-                  手动设置时区和语言
+                  Указать часовой пояс и язык вручную
                 </button>
               )}
             </div>
@@ -697,14 +697,14 @@ export function SettingsPanel({
                 {status.job?.running
                   ? status.job.message
                   : proxyDirty
-                    ? "代理修改待应用，请点击「应用代理」"
+                    ? "Изменения прокси ждут применения — нажмите «Применить прокси»"
                     : changed
                     ? environmentChanged && status.vm_running
-                      ? "网络和系统设置需要重启"
-                      : "有尚未保存的修改"
-                    : "没有未保存的修改"}
+                      ? "Сетевые и системные настройки требуют перезапуска"
+                      : "Есть несохранённые изменения"
+                    : "Несохранённых изменений нет"}
               </span>
-              <button onClick={close}>返回工作台</button>
+              <button onClick={close}>Вернуться в рабочую область</button>
               <button
                 className="primary"
                 disabled={!changed || busy}
@@ -716,8 +716,8 @@ export function SettingsPanel({
                   <Check size={15} />
                 )}{" "}
                 {environmentChanged && status.vm_running
-                  ? "保存并重启"
-                  : "保存设置"}
+                  ? "Сохранить и перезапустить"
+                  : "Сохранить настройки"}
               </button>
             </>
           </footer>
@@ -743,9 +743,9 @@ function MacOSScreenSharingSettings({ disabled, onError }) {
     }
   }
   return (
-    <section aria-label="客机屏幕共享">
-      <h4>客机屏幕共享</h4>
-      <p className="field-help">日常「打开客机屏幕共享」只在本机建立 SSH 环回转发，不给客机增加外网出口，因此不要求先断网。首次安装会在置备阶段启用服务，并在系统授权引导中检查是否真正可用；macOS 26 还需在「系统设置 → 通用 → 共享」中手动打开一次。之后若要重新启用服务或再次打开该设置页，必须先在工作台暂停外网。</p>
+    <section aria-label="Общий доступ к экрану гостевой системы">
+      <h4>Общий доступ к экрану гостевой системы</h4>
+      <p className="field-help">Обычный пункт «Открыть общий доступ к экрану гостевой системы» лишь создаёт локальную SSH-ретрансляцию и не даёт гостевой системе выхода в интернет, поэтому сначала отключать сеть не требуется. При первой установке служба включается на этапе подготовки, а в мастере системной авторизации проверяется её реальная доступность; в macOS 26 её нужно один раз включить вручную в «Системные настройки → Основные → Общий доступ». Чтобы повторно включить службу или снова открыть эту страницу настроек, сначала приостановите интернет в рабочей области.</p>
       <ScreenSharingChecks status={sharingStatus} />
       <div className="project-recovery-actions">
         <button
@@ -755,7 +755,7 @@ function MacOSScreenSharingSettings({ disabled, onError }) {
           onClick={() => run("check")}
         >
           {sharingBusy === "check" ? <LoaderCircle size={14} /> : null}
-          检查屏幕共享状态
+          Проверить состояние общего доступа к экрану
         </button>
         <button
           type="button"
@@ -764,7 +764,7 @@ function MacOSScreenSharingSettings({ disabled, onError }) {
           onClick={() => run("open")}
         >
           {sharingBusy === "open" ? <LoaderCircle size={14} /> : null}
-          打开客机屏幕共享
+          Открыть общий доступ к экрану гостевой системы
         </button>
         <button
           type="button"
@@ -773,9 +773,9 @@ function MacOSScreenSharingSettings({ disabled, onError }) {
           onClick={() => run("enable")}
         >
           {sharingBusy === "enable" ? <LoaderCircle size={14} /> : null}
-          重新启用屏幕共享服务
+          Повторно включить службу общего доступа к экрану
         </button>
-        <MacOSLogin maintenance="sharing" label="打开屏幕共享设置" disabled={disabled || Boolean(sharingBusy)} />
+        <MacOSLogin maintenance="sharing" label="Открыть настройки общего доступа к экрану" disabled={disabled || Boolean(sharingBusy)} />
       </div>
     </section>
   );

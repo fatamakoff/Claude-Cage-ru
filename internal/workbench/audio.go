@@ -38,7 +38,7 @@ func readAudioReady(reader *bufio.Reader) error {
 		Channels   int    `json:"channels"`
 	}
 	if json.Unmarshal(line, &ready) != nil || !ready.Ready || ready.Format != "s16le" || ready.SampleRate != 48000 || ready.Channels != 2 {
-		return errors.New("客机声音格式无效")
+		return errors.New("Недопустимый формат звука гостевой системы")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (s *Server) audio(w http.ResponseWriter, r *http.Request) {
 	available := !s.closing && !s.guestUpdateRequired
 	s.mu.Unlock()
 	if !available || !s.vmRunning() {
-		http.Error(w, "请先启动并更新 Cage 环境", http.StatusConflict)
+		http.Error(w, "Сначала запустите и обновите среду Cage", http.StatusConflict)
 		return
 	}
 	if !websocket.IsWebSocketUpgrade(r) {
@@ -68,7 +68,7 @@ func (s *Server) audio(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	if s.audioClients >= 4 {
 		s.mu.Unlock()
-		http.Error(w, "声音连接过多，请关闭重复的工作台窗口", http.StatusConflict)
+		http.Error(w, "Слишком много звуковых подключений, закройте лишние окна рабочей области", http.StatusConflict)
 		return
 	}
 	s.audioClients++
@@ -86,17 +86,17 @@ func (s *Server) audio(w http.ResponseWriter, r *http.Request) {
 	}
 	command, renderErr := s.linuxTemplate(audioCaptureCommand)
 	if renderErr != nil {
-		http.Error(w, "音频创建配置无效", http.StatusConflict)
+		http.Error(w, "Недопустимая конфигурация создания аудио", http.StatusConflict)
 		return
 	}
 	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", command)
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить звуковое подключение", http.StatusBadGateway)
 		return
 	}
 	if err = cmd.Start(); err != nil {
-		http.Error(w, "声音连接未能建立", http.StatusBadGateway)
+		http.Error(w, "Не удалось установить звуковое подключение", http.StatusBadGateway)
 		return
 	}
 	defer func() { cancel(); pipe.Close(); _ = cmd.Wait() }()

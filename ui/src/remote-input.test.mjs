@@ -87,7 +87,7 @@ function fixture(native = false, browserComposition = false, options = {}) {
     readClipboardContent: async () => {
       reads++;
       options.onRead?.();
-      return { text: "中文🙂" };
+      return { text: "Текст🙂" };
     },
     transferFiles: (data) => Array.from(data?.files || []),
     hasFiles: (data) => Array.from(data?.types || []).includes("Files"),
@@ -364,19 +364,19 @@ test("host IME receives composition keys and sends only committed Unicode in ord
       false,
     );
     assert.deepEqual(f.keys, []);
-    inputEvent(f, "compositionend", { data: "你好🙂" });
+    inputEvent(f, "compositionend", { data: "Привет🙂" });
     // Safari sends a final input after compositionend; Chromium sends it before.
-    f.target.value = "你好🙂";
+    f.target.value = "Привет🙂";
     inputEvent(f, "input", {
-      data: "你好🙂",
+      data: "Привет🙂",
       inputType: "insertFromComposition",
     });
     assert.deepEqual(f.keys, []);
     assert.equal(f.target.value, "");
-    assert.deepEqual(f.texts, ["你好🙂"]);
+    assert.deepEqual(f.texts, ["Привет🙂"]);
     assert.equal(f.reads(), 0);
     inputEvent(f, "compositionstart");
-    inputEvent(f, "compositionend", { data: "你好" });
+    inputEvent(f, "compositionend", { data: "Привет" });
     assert.equal(
       f.texts.length,
       2,
@@ -398,7 +398,7 @@ test("browser composition is forwarded as preedit, then committed separately", a
     inputEvent(f, "compositionupdate", { data: "nihao" });
     inputEvent(f, "input", { data: "nihao", inputType: "insertCompositionText", isComposing: true });
     await Promise.resolve();
-    inputEvent(f, "compositionend", { data: "你好" });
+    inputEvent(f, "compositionend", { data: "Привет" });
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(f.texts, []);
     assert.equal(f.compositions[0].mode, "begin");
@@ -406,7 +406,7 @@ test("browser composition is forwarded as preedit, then committed separately", a
     assert.deepEqual(f.compositions.map(value => value.sequence), [0, 1, 2]);
     assert.deepEqual(JSON.parse(JSON.stringify(f.compositions.slice(1).map(({session, sequence, ...value}) => value))), [
       { id: "tab-1", mode: "update", text: "nihao", selectionStart: 5, selectionEnd: 5 },
-      { id: "tab-1", mode: "commit", text: "你好", selectionStart: 0, selectionEnd: 0 },
+      { id: "tab-1", mode: "commit", text: "Привет", selectionStart: 0, selectionEnd: 0 },
     ]);
   } finally {
     f.controller.dispose();
@@ -595,7 +595,7 @@ test("queued composition stays bound to its original browser tab", async () => {
   f.target.value = "nihao";
   inputEvent(f, "input", { data: "nihao", inputType: "insertCompositionText", isComposing: true });
   f.setTabId("tab-2");
-  inputEvent(f, "compositionend", { data: "你好" });
+  inputEvent(f, "compositionend", { data: "Привет" });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(f.compositions.map(value => value.mode), ["begin", "update"]);
   assert.ok(f.statuses.includes("Input target changed"));
@@ -610,7 +610,7 @@ test("cancelled and disconnected compositions do not insert text", () => {
   assert.deepEqual(f.keys, []);
   inputEvent(f, "compositionstart");
   f.controller.dispose();
-  inputEvent(f, "compositionend", { data: "迟到的文本" });
+  inputEvent(f, "compositionend", { data: "Поздний текст" });
   assert.deepEqual(f.keys, []);
   assert.deepEqual(f.texts, []);
 });
@@ -688,7 +688,7 @@ test("native menu paste accepts every rapid gesture, without debouncing", async 
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(f.reads(), 10);
     assert.equal(f.pastes.length, 10);
-    assert.ok(f.pastes.every((t) => t === "中文🙂"));
+    assert.ok(f.pastes.every((t) => t === "Текст🙂"));
   } finally {
     f.controller.dispose();
   }
@@ -719,10 +719,10 @@ test("a clipboard read finishing after disconnect is not pasted into a stale con
 test("verified page copies only write to the host from the focused live tab", async () => {
   const f = fixture();
   const context = f.armCopy();
-  const copy = (id = "tab-1", text = "实际复制的文字🙂") => f.controller.receiveCopy({ id, text, context });
+  const copy = (id = "tab-1", text = "Фактически скопированный текст🙂") => f.controller.receiveCopy({ id, text, context });
   try {
     await copy();
-    assert.deepEqual(f.writes, ["实际复制的文字🙂"]);
+    assert.deepEqual(f.writes, ["Фактически скопированный текст🙂"]);
     await copy("other-tab");
     f.doc.hasFocus = () => false;
     await copy();
@@ -776,7 +776,7 @@ test("native copied PNG uses the host revision captured by its user gesture", as
     const context = f.armCopy();
     await f.controller.receiveCopy({ id: "tab-1", context, document: "page-a", clipboard: { id: "opaque-id", mime: "image/png", size: 5 } });
     assert.deepEqual(calls, [["/browser/clipboard", "opaque-id"], ["clipboardSyncWrite", 7]]);
-    assert.ok(f.statuses.at(-1).includes("剪贴板已更新"));
+    assert.ok(f.statuses.at(-1).includes("Буфер обмена хоста обновлён"));
   } finally { f.controller.dispose(); }
 });
 

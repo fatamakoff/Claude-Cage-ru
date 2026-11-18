@@ -85,15 +85,15 @@ func (s *Server) macOSClaudeWindow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validMacOSWindowRequest(input) {
-		http.Error(w, "客机窗口操作或尺寸无效", http.StatusBadRequest)
+		http.Error(w, "Недопустимая операция с окном гостевой системы или размер", http.StatusBadRequest)
 		return
 	}
 	s.macOSWindowRPC(w, r, macOSWindowClientRequest(input, false, macOSBrowserWindowRoute(r)))
 }
 
 var (
-	errMacWindowInput   = errors.New("单次窗口输入过长")
-	errMacWindowConnect = errors.New("无法连接虚拟 Mac")
+	errMacWindowInput   = errors.New("Слишком длинный ввод для одного окна")
+	errMacWindowConnect = errors.New("Не удалось подключиться к виртуальному Mac")
 )
 
 func (s *Server) macOSWindowRPC(w http.ResponseWriter, r *http.Request, input macOSWindowRequest) {
@@ -165,7 +165,7 @@ func (s *Server) macOSWindowCall(parent context.Context, input macOSWindowReques
 	}
 	waitErr := cmd.Wait()
 	if readErr != nil || waitErr != nil || len(reply) > maxReply || !json.Valid(reply) {
-		return nil, errors.New("请先登录虚拟 Mac 的普通账户，并完成 Apple 设置助理。")
+		return nil, errors.New("Сначала войдите в обычный аккаунт виртуального Mac и завершите настройку Apple.")
 	}
 	return reply, nil
 }

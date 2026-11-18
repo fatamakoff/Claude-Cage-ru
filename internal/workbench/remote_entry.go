@@ -32,7 +32,7 @@ func ensureRemoteInstance(profile string) (string, error) {
 		data, err := os.ReadFile(path)
 		var instance remoteInstance
 		if err != nil || json.Unmarshal(data, &instance) != nil || !remoteInstanceID.MatchString(instance.ID) {
-			return "", errors.New("远程实例身份记录无效，请保留数据并检查配置")
+			return "", errors.New("Запись идентичности удалённого экземпляра недействительна. Сохраните данные и проверьте конфигурацию")
 		}
 		return instance.ID, nil
 	} else if !os.IsNotExist(err) {
@@ -89,7 +89,7 @@ func ServerEntry(configPath string) (RemoteEntry, error) {
 	var result RemoteEntry
 	c, err := connectController(filepath.Dir(configPath))
 	if err != nil {
-		return result, errors.New("云端 Cage 服务尚未运行或无法认证，请检查服务状态")
+		return result, errors.New("Облачная служба Cage не запущена или не прошла аутентификацию. Проверьте состояние службы")
 	}
 	defer c.close()
 	entry, err := url.Parse(c.launch.URL)
@@ -98,22 +98,22 @@ func ServerEntry(configPath string) (RemoteEntry, error) {
 	}
 	status, err := c.call("POST", "/api/session", map[string]string{"token": entry.Fragment}, nil)
 	if err != nil || status != http.StatusOK {
-		return result, errors.New("无法建立云端入口会话")
+		return result, errors.New("Не удалось создать сессию облачной точки входа")
 	}
 	status, err = c.call("GET", "/api/remote/manifest", nil, &result)
 	if err != nil || status != http.StatusOK || !remoteInstanceID.MatchString(result.InstanceID) {
-		return RemoteEntry{}, errors.New("云端服务不支持当前远程连接协议")
+		return RemoteEntry{}, errors.New("Облачная служба не поддерживает текущий протокол удалённого подключения")
 	}
 	// The manifest lookup consumed the first ticket; issue another for the
 	// connecting client's private transport.
 	var launch launchResponse
 	status, err = c.call("POST", "/api/launch", map[string]string{"token": c.record.Token}, &launch)
 	if err != nil || status != http.StatusOK {
-		return RemoteEntry{}, errors.New("无法取得云端一次性入口")
+		return RemoteEntry{}, errors.New("Не удалось получить одноразовую облачную точку входа")
 	}
 	u, err := url.Parse(launch.URL)
 	if err != nil || u.Scheme+"://"+u.Host != c.origin || u.Fragment == "" {
-		return RemoteEntry{}, errors.New("云端入口无效")
+		return RemoteEntry{}, errors.New("Неверная облачная точка входа")
 	}
 	result.Ticket = u.Fragment
 	if result.Platform == "windows" && result.Runtime == "windows-remote" {

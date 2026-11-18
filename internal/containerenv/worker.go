@@ -38,7 +38,7 @@ type networkRecord struct {
 	SharedDirectory string `json:"shared_directory"`
 }
 
-var errSharedDirectoryChanged = errors.New("下载目录与运行中的文件共享不一致，请保存工作后完整停止并重新启动环境；文件和登录状态会保留")
+var errSharedDirectoryChanged = errors.New("Каталог загрузок не совпадает с общим доступом работающей среды. Сохраните работу, полностью остановите среду и запустите её снова; файлы и состояние входа сохранятся")
 
 func (r *Runtime) networkState(ctx context.Context, containerID string) (networkRecord, error) {
 	path := filepath.Join(r.InstanceDir(), "network.json")
@@ -47,11 +47,11 @@ func (r *Runtime) networkState(ctx context.Context, containerID string) (network
 	}
 	data, err := os.ReadFile(path)
 	if err != nil || len(data) > 8192 {
-		return networkRecord{}, errors.New("容器连接记录不可用")
+		return networkRecord{}, errors.New("Запись подключения контейнера недоступна")
 	}
 	var record networkRecord
 	if json.Unmarshal(data, &record) != nil || record.ContainerID != containerID || record.RunID == "" || !record.Shared {
-		return record, errors.New("容器连接记录不属于当前运行环境")
+		return record, errors.New("Запись подключения контейнера не принадлежит текущей запущенной среде")
 	}
 	if record.SharedDirectory == "" || !paths.Equal(record.SharedDirectory, cage.EnvironmentDir(r.profile)) {
 		return record, errSharedDirectoryChanged
@@ -61,7 +61,7 @@ func (r *Runtime) networkState(ctx context.Context, containerID string) (network
 		number, parseErr := strconv.Atoi(port)
 		ip := net.ParseIP(host)
 		if err != nil || parseErr != nil || ip == nil || !ip.IsLoopback() || number < 1024 || number > 65535 {
-			return record, errors.New("容器连接入口无效")
+			return record, errors.New("Недопустимая точка входа подключения контейнера")
 		}
 	}
 	client, err := cage.OpenGateClient(r.InstanceDir())
@@ -70,7 +70,7 @@ func (r *Runtime) networkState(ctx context.Context, containerID string) (network
 	}
 	status, err := client.Status(ctx)
 	if err != nil || status.RunID != record.RunID {
-		return record, errors.New("容器网络控制服务尚未连接")
+		return record, errors.New("Служба управления сетью контейнера ещё не подключена")
 	}
 	return record, nil
 }
@@ -102,11 +102,11 @@ func (r *Runtime) Start(ctx context.Context, configPath string, log io.Writer) e
 		return err
 	}
 	if !inspection.State.Exists {
-		return errors.New("容器尚未准备，请先运行 Cage 容器安装")
+		return errors.New("Контейнер ещё не подготовлен. Сначала запустите установку контейнера Cage")
 	}
 	if inspection.State.Running {
 		if !inspection.State.MountsReady {
-			return errors.New("容器的项目挂载尚未初始化，请先完整停止环境再启动；文件和登录状态会保留")
+			return errors.New("Монтирование проекта в контейнере ещё не инициализировано. Полностью остановите среду и запустите её снова; файлы и состояние входа сохранятся")
 		}
 		if _, err := r.networkState(ctx, inspection.State.ContainerID); err == nil {
 			client, err := cage.OpenGateClient(r.InstanceDir())
@@ -118,7 +118,7 @@ func (r *Runtime) Start(ctx context.Context, configPath string, log io.Writer) e
 				return err
 			}
 			if state.Configuration != cfg.Fingerprint() {
-				return errors.New("容器运行配置已变化，请先停止环境后重新启动")
+				return errors.New("Конфигурация запуска контейнера изменилась. Сначала остановите среду и запустите её снова")
 			}
 			return nil
 		}
@@ -175,7 +175,7 @@ func (r *Runtime) Start(ctx context.Context, configPath string, log io.Writer) e
 	for {
 		select {
 		case err := <-done:
-			return fmt.Errorf("容器网络服务退出，请查看容器网络日志: %w", err)
+			return fmt.Errorf("Сетевая служба контейнера завершилась. Проверьте журнал сети контейнера: %w", err)
 		case <-ctx.Done():
 			_ = command.Process.Kill()
 			<-done
@@ -183,7 +183,7 @@ func (r *Runtime) Start(ctx context.Context, configPath string, log io.Writer) e
 		case <-timeout.C:
 			_ = command.Process.Kill()
 			<-done
-			return errors.New("容器连接超时；容器文件保留，请查看网络日志")
+			return errors.New("Истекло время подключения контейнера; файлы контейнера сохранены, проверьте журнал сети")
 		case <-ticker.C:
 			checkCtx, cancel := context.WithTimeout(ctx, time.Second)
 			record, err := r.networkState(checkCtx, inspection.State.ContainerID)
@@ -222,10 +222,10 @@ func (r *Runtime) ServeNetwork(ctx context.Context, configPath string) error {
 		return err
 	}
 	if !inspection.State.Running {
-		return errors.New("容器未运行")
+		return errors.New("Контейнер не запущен")
 	}
 	if !inspection.State.MountsReady {
-		return errors.New("容器项目挂载尚未初始化，请完整停止后重新启动")
+		return errors.New("Монтирование проекта в контейнере ещё не инициализировано. Полностью остановите среду и запустите её снова")
 	}
 	cfg, err := cage.Load(configPath)
 	if err != nil {
@@ -249,7 +249,7 @@ func (r *Runtime) ServeNetwork(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	defer network.Gate.Close("容器网络服务已停止")
+	defer network.Gate.Close("Сетевая служба контейнера остановлена")
 	args := []string{"exec", "-i", "--user", "0", inspection.State.ContainerID, guestHelper, "container-tap"}
 	if identity != nil {
 		args = append(args, identity.MACAddress)
@@ -318,7 +318,7 @@ func (r *Runtime) ServeNetwork(ctx context.Context, configPath string) error {
 	case err := <-networkDone:
 		return err
 	case err := <-shareDone:
-		return fmt.Errorf("受限项目共享已断开: %w", err)
+		return fmt.Errorf("Общий доступ к ограниченному проекту разорван: %w", err)
 	case err := <-serviceDone:
 		return err
 	}
@@ -347,7 +347,7 @@ func (r *Runtime) connectGuestSSH(ctx context.Context, network *Network, user st
 			_ = connection.Close()
 			var mismatch *knownhosts.KeyError
 			if errors.As(handshakeErr, &mismatch) {
-				return nil, errors.New("容器 SSH 主机身份不匹配")
+				return nil, errors.New("Идентичность хоста SSH контейнера не совпадает")
 			}
 		} else {
 			cancel()
@@ -356,7 +356,7 @@ func (r *Runtime) connectGuestSSH(ctx context.Context, network *Network, user st
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-deadline.C:
-			return nil, errors.New("容器 SSH 未能就绪")
+			return nil, errors.New("SSH контейнера не удалось подготовить")
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
@@ -424,7 +424,7 @@ func (r *Runtime) shareEnvironment(ctx context.Context, client *ssh.Client, work
 	interrupt()
 	prepare.Close()
 	if err != nil {
-		return nil, nil, errors.New("无法准备容器项目共享目录")
+		return nil, nil, errors.New("Не удалось подготовить каталог общего доступа к проекту в контейнере")
 	}
 	probe, err := os.CreateTemp(workspace, ".cage-mount-probe-*")
 	if err != nil {
@@ -492,10 +492,10 @@ func (r *Runtime) shareEnvironment(ctx context.Context, client *ssh.Client, work
 			return nil, nil, ctx.Err()
 		case <-deadline.C:
 			stop()
-			return nil, nil, errors.New("容器项目共享验证超时")
+			return nil, nil, errors.New("Истекло время проверки общего доступа к проекту в контейнере")
 		case err := <-done:
 			stop()
-			return nil, nil, fmt.Errorf("容器项目共享失败: %w", err)
+			return nil, nil, fmt.Errorf("Не удалось организовать общий доступ к проекту в контейнере: %w", err)
 		case <-time.After(150 * time.Millisecond):
 		}
 	}

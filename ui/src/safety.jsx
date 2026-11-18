@@ -18,22 +18,22 @@ import { networkState, reportForSharing } from "./safety-state.mjs";
 
 const diagnostics = [
   {
-    name: "IP 质量",
+    name: "Качество IP",
     source: "ip.net.coffee",
     url: "https://ip.net.coffee/claude/",
-    description: "查看 IP 属性、ASN、信誉评分与网络诊断。",
+    description: "Свойства IP, ASN, репутация и диагностика сети.",
   },
   {
-    name: "浏览器信息",
+    name: "Данные браузера",
     source: "fuck-claude.vercel.app",
     url: "https://fuck-claude.vercel.app/",
-    description: "查看时区、语言、字体等浏览器信号的社区评估。",
-    attribution: "原项目 FuckClaude 由 LinXiaoTao 创建并持续维护。",
+    description: "Оценка сообществом сигналов браузера: часового пояса, языка, шрифтов.",
+    attribution: "Исходный проект FuckClaude создан и поддерживается LinXiaoTao.",
     links: [
-      { label: "原项目官网", url: "https://fuck-claude.vercel.app/" },
-      { label: "开源仓库", url: "https://github.com/LinXiaoTao/FuckClaude" },
+      { label: "Сайт проекта", url: "https://fuck-claude.vercel.app/" },
+      { label: "Репозиторий", url: "https://github.com/LinXiaoTao/FuckClaude" },
       {
-        label: "初始提交",
+        label: "Первый коммит",
         url: "https://github.com/LinXiaoTao/FuckClaude/commit/420c79bb0531b12ea2788e726ffbf81075111737",
       },
     ],
@@ -41,7 +41,7 @@ const diagnostics = [
 ];
 
 export async function bindDetectedMacOSExit(ip, onConfirm) {
-  if (!(await onConfirm({ title: "绑定固定出口？", body: `客机终端、浏览器和代理均测得 ${ip}。保存后请重启客机并重新检测。`, confirm: "绑定固定出口" }))) return null;
+  if (!(await onConfirm({ title: "Привязать фиксированный выход?", body: `Терминал гостевой системы, браузер и прокси показали ${ip}. После сохранения перезапустите гостевую систему и повторите проверку.`, confirm: "Привязать фиксированный выход" }))) return null;
   return api("/macos/exit-policy", { ip });
 }
 
@@ -69,9 +69,9 @@ export function SafetyPanel({
       status.vm_running &&
       !safety.gate &&
       !(await onConfirm({
-        title: "重启环境并加载检测组件？",
-        body: "当前终端会话将结束。请先保存文件，浏览器登录与项目文件会保留。",
-        confirm: "重启并检查",
+        title: "Перезапустить среду и загрузить компонент проверки?",
+        body: "Текущие сессии терминала завершатся. Сначала сохраните файлы; входы в браузере и файлы проекта сохранятся.",
+        confirm: "Перезапустить и проверить",
       }))
     )
       return;
@@ -92,9 +92,9 @@ export function SafetyPanel({
   const copy = async () => {
     try {
       await writeClipboard(JSON.stringify(reportForSharing(report), null, 2));
-      setNotice("已复制报告，不含代理凭据、IP 地址和本机路径");
+      setNotice("Отчёт скопирован: без учётных данных прокси, IP-адресов и локальных путей");
     } catch {
-      setError("无法写入本机剪贴板，请检查浏览器的剪贴板权限。");
+      setError("Не удалось записать в буфер обмена. Проверьте разрешения браузера на доступ к буферу обмена.");
     }
   };
   const open = async (url) => {
@@ -102,17 +102,17 @@ export function SafetyPanel({
   };
   return (
     <Modal
-      title="网络与隔离检查"
+      title="Проверка сети и изоляции"
       wide
       onClose={onClose}
       footer={
         <>
           <span className="save-note">
-            {busy ? status.job.message : "外网关闭时，离线终端和文件仍可使用"}
+            {busy ? status.job.message : "При выключенном внешнем доступе офлайн-терминалы и файлы остаются доступны"}
           </span>
           {(online || network.mode === "checking") && (
             <button onClick={pause}>
-              {network.mode === "checking" ? "取消检测并关闭外网" : "暂停外网"}
+              {network.mode === "checking" ? "Отменить проверку и отключить сеть" : "Приостановить сеть"}
             </button>
           )}
           <button className="primary" disabled={busy} onClick={run}>
@@ -122,23 +122,23 @@ export function SafetyPanel({
               <ShieldCheck size={15} />
             )}
             {busy
-              ? "检查进行中"
+              ? "Идёт проверка"
               : online
-                ? "暂停外网并重检"
+                ? "Отключить сеть и перепроверить"
                 : status.ready && safety.gate
-                  ? "重新检测"
+                  ? "Проверить снова"
                   : status.vm_running
-                    ? "重启并检查"
-                    : "启动并检查"}
+                    ? "Перезапустить и проверить"
+                    : "Запустить и проверить"}
           </button>
         </>
       }
     >
       <div className="modal-body safety-body">
         {safety.macos_exit_candidate?.ip && <button disabled={busy} onClick={async () => {
-          try { if (await bindDetectedMacOSExit(safety.macos_exit_candidate.ip, onConfirm)) setNotice("固定出口已提交，请在保存完成后重启客机并重新检测。"); }
+          try { if (await bindDetectedMacOSExit(safety.macos_exit_candidate.ip, onConfirm)) setNotice("Фиксированный выход отправлен. После сохранения перезапустите гостевую систему и повторите проверку."); }
           catch (e) { setError(e.message); }
-        }}>绑定检测到的固定出口 {safety.macos_exit_candidate.ip}</button>}
+        }}>Привязать обнаруженный фиксированный выход {safety.macos_exit_candidate.ip}</button>}
         <div className={`safety-summary ${network.mode}`}>
           {online ? (
             <ShieldCheck size={27} />
@@ -153,15 +153,15 @@ export function SafetyPanel({
               {busy
                 ? status.job.message
                 : online
-                  ? status.network_error || "关键检查已通过，后台继续核对出口规则与环境配置。"
+                  ? status.network_error || "Ключевые проверки пройдены, в фоне продолжается сверка правил выхода и конфигурации среды."
                   : status.network_error || safety.error ||
                     safety.gate?.reason ||
-                    "完成关键检查后，才允许连接外部网站。"}
+                    "Подключение к внешним сайтам разрешается только после ключевых проверок."}
             </p>
           </div>
           <button className="text-button" onClick={() => onSettings("network")}>
             <Settings size={15} />
-            出口规则
+            Правила выхода
           </button>
         </div>
         {(error || notice) && (
@@ -173,20 +173,20 @@ export function SafetyPanel({
           </div>
         )}
         <div className="safety-section-heading">
-          <h4>关键检查</h4>
-          <span>{total ? `${passed} / ${total} 通过` : "尚无检测记录"}</span>
+          <h4>Ключевые проверки</h4>
+          <span>{total ? `${passed} / ${total} пройдено` : "Записей о проверках нет"}</span>
           {report && (
             <button className="text-button" onClick={copy}>
               <Copy size={14} />
-              复制报告
+              Копировать отчёт
             </button>
           )}
         </div>
         {report ? (
           <>
             <p className="safety-timestamp">
-              检测于 {new Date(report.created_at).toLocaleString("zh-CN")} ·{" "}
-              {online ? "当前运行实例" : "报告不代表当前已放行"}
+              Проверено {new Date(report.created_at).toLocaleString("ru-RU")} ·{" "}
+              {online ? "текущий запущенный экземпляр" : "отчёт не означает, что доступ сейчас разрешён"}
             </p>
             <div className="safety-checks">
               {report.checks
@@ -208,12 +208,12 @@ export function SafetyPanel({
                         <strong>{check.title}</strong>
                         <span>
                           {check.state === "passed"
-                            ? "通过"
+                            ? "Пройдено"
                             : check.state === "failed"
-                              ? "未通过"
+                              ? "Не пройдено"
                               : busy && check.checked_at === report.created_at
-                                ? "待检查"
-                                : "未知"}
+                                ? "Ожидает проверки"
+                                : "Неизвестно"}
                         </span>
                         <ChevronDown size={14} />
                       </summary>
@@ -230,7 +230,7 @@ export function SafetyPanel({
           </>
         ) : (
           <p className="safety-empty">
-            检查涵盖出站规则、代理故障关闭、DNS、共享目录、宿主管理接口，以及系统和浏览器的实际配置。关键项失败或未知时保持外网关闭。
+            Проверки охватывают правила исходящих соединений, отказ при сбое прокси, DNS, общие каталоги, интерфейс управления хостом, а также фактическую конфигурацию системы и браузера. При сбое или неизвестном результате ключевой проверки внешний доступ остаётся закрытым.
           </p>
         )}
         <DeviceChecks disabled={busy || !status.vm_running} />
@@ -242,7 +242,7 @@ export function SafetyPanel({
                 <p key={check.id}>
                   <CircleHelp size={15} />
                   <span>
-                    <strong>{check.title}：</strong>
+                    <strong>{check.title}:</strong>
                     {check.evidence}
                   </span>
                 </p>
@@ -250,8 +250,8 @@ export function SafetyPanel({
           </div>
         )}
         <div className="safety-section-heading">
-          <h4>社区补充检查</h4>
-          <span>提示项，不参与联网准入</span>
+          <h4>Дополнительные проверки сообщества</h4>
+          <span>Рекомендации, не влияют на допуск к сети</span>
         </div>
         <div className="diagnostic-sites">
           {diagnostics.map((site) => (
@@ -260,7 +260,7 @@ export function SafetyPanel({
               <small>{site.source}</small>
               <p>{site.description}</p>
               <button disabled={!online || busy} onClick={() => open(site.url)}>
-                在 Cage 中打开
+                Открыть в Cage
                 <ArrowUpRight size={14} />
               </button>
               {site.attribution && (
@@ -285,22 +285,22 @@ export function SafetyPanel({
           ))}
         </div>
         <p className="field-help">
-          点击后才访问第三方站点。站点会收到 Cage 的出口
-          IP，并可读取该页面可访问的浏览器信息。评分属于社区参考。
+          Сторонние сайты посещаются только после нажатия. Сайт получит IP-адрес выхода Cage
+          и сможет прочитать доступные на странице данные браузера. Оценки носят справочный характер.
         </p>
         <details className="safety-scope">
-          <summary>检查范围与来源</summary>
+          <summary>Объём и источники проверки</summary>
           <p>
-            当前版本验证 IPv4 出口，客机公网 IPv6 与 UDP 关闭。出口监测约每 30
-            秒执行；位置来自 IP
-            数据库，城市判断具有误差。代理自身按目标分流的行为仍需在代理侧约束。
+            Текущая версия проверяет выход IPv4; публичный IPv6 и UDP в гостевой системе отключены. Мониторинг выхода выполняется примерно раз в 30
+            секунд; местоположение берётся из базы IP-адресов,
+            определение города может быть неточным. Поведение самого прокси с разделением по целям нужно ограничивать на стороне прокси.
           </p>
           <p>
-            报告包含运行时策略和采样证据，不能代替完整虚拟化审计，也不代表平台账号资格或封禁预测。全面检查有效期为
-            24 小时；控制服务失联后，联网授权最多保留 90 秒。
+            Отчёт содержит политики времени выполнения и свидетельства выборки и не заменяет полный аудит виртуализации, а также не предсказывает право на аккаунт платформы или блокировки. Полная проверка действует
+            24 часа; после потери связи со службой управления сетевой доступ сохраняется не более 90 секунд.
           </p>
           <div className="safety-sources">
-            <span>方法参考</span>
+            <span>Методика</span>
             <button
               className="text-button"
               disabled={!online}

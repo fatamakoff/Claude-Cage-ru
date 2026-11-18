@@ -33,7 +33,7 @@ export function EnvironmentClock({ timezone, clock12Hour = false }) {
     };
   }, []);
 
-  const label = formatter ? `当地时间（${timezone}）` : "当地时间：时区不可用";
+  const label = formatter ? `Местное время (${timezone})` : "Местное время: часовой пояс недоступен";
   return <time className="status-clock" dateTime={new Date(now).toISOString()} title={label} aria-label={label}>
     {formatter ? formatter.formatToParts(now).map(({ type, value }) => type === "dayPeriod" ? value.toUpperCase() : value).join("") : "--:--"}
   </time>;

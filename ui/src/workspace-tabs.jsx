@@ -240,7 +240,7 @@ export function WorkspaceTabs({
   const actions = menu && (
     <div className="menu workspace-tab-menu"
       style={{ top: menu.top, left: menu.left }}
-      role="menu" aria-label="标签操作">
+      role="menu" aria-label="Действия с вкладкой">
               <button
                 role="menuitem"
                 onClick={() => {
@@ -248,7 +248,7 @@ export function WorkspaceTabs({
                   onRename(menu.tab);
                 }}
               >
-                重命名标签
+                Переименовать вкладку
               </button>
               <button
                 role="menuitem"
@@ -258,7 +258,7 @@ export function WorkspaceTabs({
                 }}
               >
                 <Pin size={14} />
-                {saved[menu.tab.id]?.pinned ? "取消置顶" : "置顶标签"}
+                {saved[menu.tab.id]?.pinned ? "Открепить" : "Закрепить вкладку"}
               </button>
               <button
                 role="menuitem"
@@ -268,7 +268,7 @@ export function WorkspaceTabs({
                 }}
               >
                 <X size={15} />
-                关闭标签<kbd>{shortcut("⌘W")}</kbd>
+                Закрыть вкладку<kbd>{shortcut("⌘W")}</kbd>
               </button>
     </div>
   );
@@ -299,8 +299,8 @@ export function WorkspaceTabs({
           const opening = Boolean(openingSession) && openingSession === tab.cli_session_id;
           const runningElsewhere = tab.sessionRunningElsewhere;
           const runningNotice = tab.sessionClaudeDesktop
-            ? "Claude Desktop 占用中，请先在 Claude Desktop 中退出此会话再接续"
-            : "其他窗口占用中，退出原会话后可接续";
+            ? "Занято Claude Desktop: сначала завершите эту сессию в Claude Desktop, затем продолжите"
+            : "Занято другим окном: завершите исходную сессию, чтобы продолжить";
           const OwnerIcon = tab.sessionClaudeDesktop ? Monitor : TerminalSquare;
           const openError = tab.historySession && sessionOpenError?.id === tab.cli_session_id ? sessionOpenError.message : "";
           const errorID = `session-open-error-${tab.cli_session_id}`;
@@ -349,7 +349,7 @@ export function WorkspaceTabs({
                     : -1
                 }
                 disabled={tab.historySession ? busy || opening || runningElsewhere : !ready && tab.kind !== "terminal"}
-                title={runningElsewhere ? `${title}\n${runningNotice}` : tab.url ? `${title}\n${tab.url}` : [title, tab.claudeAccountNumber && `账号 ${tab.claudeAccountNumber}`, tab.claudeLabel].filter(Boolean).join(" · ")}
+                title={runningElsewhere ? `${title}\n${runningNotice}` : tab.url ? `${title}\n${tab.url}` : [title, tab.claudeAccountNumber && `Аккаунт ${tab.claudeAccountNumber}`, tab.claudeLabel].filter(Boolean).join(" · ")}
                 onClick={() => onSelect(tab.id)}
                 onContextMenu={(event) => showMenu(tab, event)}
                 onKeyDown={(event) => {
@@ -390,7 +390,7 @@ export function WorkspaceTabs({
                 {tab.claudeLabel && <small className="claude-tab-profile">{tab.claudeLabel}</small>}
                 {saved[tab.id]?.pinned && <Pin size={11} className="tab-pin" />}
                 {!horizontal && !vertical && (opening || tab.sessionActive && !runningElsewhere) &&
-                  <LoaderCircle size={13} className="spin session-activity" role="img" aria-label={opening ? "正在打开会话" : "会话正在运行"} />}
+                  <LoaderCircle size={13} className="spin session-activity" role="img" aria-label={opening ? "Открываем сессию" : "Сессия выполняется"} />}
               </button>
               {!horizontal && !vertical && runningElsewhere &&
                 <span className="session-owner" role="img" aria-label={runningNotice} tabIndex={0}>
@@ -399,18 +399,18 @@ export function WorkspaceTabs({
               {horizontal || vertical ? (
                 <button
                   className="tab-close icon-button"
-                  aria-label={`关闭 ${title}`}
+                  aria-label={`Закрыть ${title}`}
                   disabled={busy}
                   onClick={() => onClose(tab)}
                 >
                   <X size={14} />
                 </button>
               ) : (
-                <div className="terminal-row-actions" role="group" aria-label={`${title} 的操作`}>
-                  <TerminalAction label={saved[tab.id]?.pinned ? "取消置顶" : "置顶"}
+                <div className="terminal-row-actions" role="group" aria-label={`Действия: ${title}`}>
+                  <TerminalAction label={saved[tab.id]?.pinned ? "Открепить" : "Закрепить"}
                     icon={saved[tab.id]?.pinned ? PinOff : Pin} disabled={busy} onClick={() => onPin(tab.id)} />
-                  <TerminalAction label="重命名" icon={Pencil} disabled={busy} onClick={() => onRename(tab)} />
-                  <TerminalAction label={tab.cli_session_id ? "归档" : "关闭终端"} icon={tab.cli_session_id ? Archive : X} disabled={busy} onClick={event => onClose(tab, event.currentTarget)} />
+                  <TerminalAction label="Переименовать" icon={Pencil} disabled={busy} onClick={() => onRename(tab)} />
+                  <TerminalAction label={tab.cli_session_id ? "Архивировать" : "Закрыть терминал"} icon={tab.cli_session_id ? Archive : X} disabled={busy} onClick={event => onClose(tab, event.currentTarget)} />
                 </div>
               )}
             </div>
@@ -423,8 +423,8 @@ export function WorkspaceTabs({
         <div className="browser-all-tabs">
           <button
             className="icon-button"
-            aria-label="搜索标签页"
-            title="搜索标签页"
+            aria-label="Поиск вкладок"
+            title="Поиск вкладок"
             aria-expanded={allOpen}
             onClick={(event) => {
               trigger.current = event.currentTarget;
@@ -440,18 +440,18 @@ export function WorkspaceTabs({
               <div
                 className="menu all-tabs-menu"
                 role="dialog"
-                aria-label="搜索标签页"
+                aria-label="Поиск вкладок"
               >
                 <input
                   autoFocus
-                  aria-label="搜索已打开的标签页"
-                  placeholder="搜索标签页"
+                  aria-label="Поиск среди открытых вкладок"
+                  placeholder="Поиск вкладок"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
                 <div className="all-tabs-results">
                   {matchingTabs.length === 0 && (
-                    <p className="favorites-empty">没有匹配的标签页</p>
+                    <p className="favorites-empty">Нет подходящих вкладок</p>
                   )}
                   {matchingTabs.map((tab) => (
                     <button
@@ -467,7 +467,7 @@ export function WorkspaceTabs({
                         accountNumber={tab.claudeAccountNumber} />
                       <span>{tabName(tab, saved)}</span>
                       {tab.id === active && (
-                        <span className="current-tab-marker">当前</span>
+                        <span className="current-tab-marker">Текущая</span>
                       )}
                     </button>
                   ))}

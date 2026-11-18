@@ -28,7 +28,7 @@ func macOSProjectPath(user, hostDirectory string) string {
 // A mount which is ready in FSKit can still be unreadable by the guest app.
 // Keep the live restricted connection while macOS waits for the user's folder
 // approval; do not accept an APFS directory or a stale mount as this project.
-var errMacOSProjectApproval = &projectShareError{Recovery: "project-approval", Message: "请在 Cage 显示的客机授权窗口中允许此项目，然后验证授权。"}
+var errMacOSProjectApproval = &projectShareError{Recovery: "project-approval", Message: "Разрешите этот проект в окне авторизации гостевой системы, которое показывает Cage, затем подтвердите авторизацию."}
 
 const macProjectAgent = "/Applications/CageProjectAccess.app/Contents/MacOS/CageProjectAccess"
 const macProjectLoginCheck = `test "$(/usr/bin/stat -f %u /dev/console)" = "$(/usr/bin/id -u)" && /bin/launchctl print "gui/$(/usr/bin/id -u)" >/dev/null 2>&1`
@@ -38,16 +38,16 @@ func macOSProjectPrepareError(err error) error {
 	if errors.As(err, &exit) {
 		switch exit.ExitCode() {
 		case 73:
-			return &projectShareError{Recovery: "guest-login", Message: "请先登录虚拟 Mac 的客机账户。登录完成后，Cage 会自动连接项目。"}
+			return &projectShareError{Recovery: "guest-login", Message: "Сначала войдите в аккаунт гостевой системы виртуального Mac. После входа Cage автоматически подключит проект."}
 		case 74, 79:
-			return &projectShareError{Recovery: "environment-update", Message: "客机项目共享组件尚未就绪。请同步环境组件，完成后重新连接项目。"}
+			return &projectShareError{Recovery: "environment-update", Message: "Компоненты общего доступа к проектам гостевой системы не готовы. Синхронизируйте компоненты среды и снова подключите проект."}
 		case 76:
-			return &projectShareError{Recovery: "environment-restart", Message: "此项目还保留着旧的客机挂载。请保存工作，在环境设置中停止并重新启动虚拟 Mac，再连接项目。"}
+			return &projectShareError{Recovery: "environment-restart", Message: "Для этого проекта сохранилась старая точка монтирования гостевой системы. Сохраните работу, остановите и снова запустите виртуальный Mac в настройках среды, затем подключите проект."}
 		case 77, 78:
-			return &projectShareError{Recovery: "project-directory", Message: "客机的项目挂载位置包含文件、链接或权限异常。请先保留其中的文件，再通过诊断记录检查该位置。"}
+			return &projectShareError{Recovery: "project-directory", Message: "Точка монтирования проекта гостевой системы содержит файлы, ссылки или права с нарушениями. Сохраните находящиеся там файлы и проверьте эту точку по записям диагностики."}
 		}
 	}
-	return &projectShareError{Recovery: "project-retry", Message: "工作台暂时无法连接客机项目服务。连接恢复后会自动重试，也可以重新连接项目。"}
+	return &projectShareError{Recovery: "project-retry", Message: "Рабочая область временно не может подключиться к службе проектов гостевой системы. После восстановления подключения будет выполнена повторная попытка; можно также переподключить проект."}
 }
 
 func (s *Server) ensureMacOSProjectShare(hostDir string) error {
@@ -147,7 +147,7 @@ func (s *Server) macOSMountCleanup(ctx context.Context, guestDir string) (func()
 	legacy := macOSLegacyMountDevice.MatchString(device)
 	if err != nil || !ok || (!legacy && (id == device || parseErr != nil)) || strings.Contains(line, "\n") ||
 		!strings.Contains(options, "fskit") || !strings.Contains(options, "mounted by "+s.macosGuest.User+")") {
-		return nil, errors.New("无法核对本次挂载的 macOS 卷标识")
+		return nil, errors.New("Не удалось проверить идентификатор тома macOS для этой точки монтирования")
 	}
 	detach := "if test \"$(" + query + ")\" = " + shellescape.Quote(line) + "; then /sbin/umount -f " + shellescape.Quote(guestDir) + "; fi"
 	if legacy {
@@ -158,7 +158,7 @@ func (s *Server) macOSMountCleanup(ctx context.Context, guestDir string) (func()
 		data, infoErr := s.guest(ctx, info)
 		id, err := macOSLegacyMountID(data)
 		if infoErr != nil || err != nil {
-			return nil, errors.New("无法核对本次挂载的 macOS 卷标识")
+			return nil, errors.New("Не удалось проверить идентификатор тома macOS для этой точки монтирования")
 		}
 		detach = "if test \"$(" + query + ")\" = " + shellescape.Quote(line) +
 			" && test \"$(" + info + ")\" = " + shellescape.Quote(id) +
@@ -214,16 +214,16 @@ func (s *Server) probeMacOSProject(ctx context.Context, hostDir, guestDir string
 		}
 		select {
 		case <-ctx.Done():
-			return &projectShareError{Recovery: "project-retry", Message: "客机项目助手尚未确认此文件夹可用。请重新连接项目，持续失败时可查看诊断记录。"}
+			return &projectShareError{Recovery: "project-retry", Message: "Помощник проектов гостевой системы ещё не подтвердил доступность этой папки. Переподключите проект; если ошибка повторяется, проверьте записи диагностики."}
 		case <-share.done:
 			if share.stderr != nil && len(share.stderr.data) > 0 {
 				message := string(share.stderr.data)
 				_ = diagnostics.New(s.profile).Record("warn", "macos-project-mount", message)
 				if strings.Contains(strings.ToLower(message), "not enabled") {
-					return &projectShareError{Recovery: "filesystem-permission", Message: "虚拟 Mac 的文件系统扩展尚未启用。请打开客机授权设置，按提示打开 macFUSE 和 macFUSE (local) 两个开关，Cage 会自动检查并重新连接项目。"}
+					return &projectShareError{Recovery: "filesystem-permission", Message: "Расширение файловой системы виртуального Mac не включено. Откройте настройки авторизации гостевой системы и включите оба переключателя macFUSE и macFUSE (local) — Cage проверит и переподключит проект автоматически."}
 				}
 			}
-			return &projectShareError{Recovery: "project-retry", Message: "客机文件共享连接已中断。Cage 会自动重试，持续失败时可查看诊断记录。"}
+			return &projectShareError{Recovery: "project-retry", Message: "Подключение к общему доступу файлов гостевой системы прервано. Cage повторит попытку; если ошибка повторяется, проверьте записи диагностики."}
 		case <-time.After(200 * time.Millisecond):
 		}
 	}

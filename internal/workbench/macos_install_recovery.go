@@ -61,18 +61,18 @@ func (s *Server) recordInstallRecovery(detail string) {
 // lifecycle operations. It never creates or substitutes a MacOSProfile.
 func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 	if !s.hasTrustedView(r) || !s.localVMStorage() {
-		http.Error(w, "请在本机 Cage 窗口继续安装", http.StatusForbidden)
+		http.Error(w, "Продолжите установку в окне Cage на этом компьютере", http.StatusForbidden)
 		return
 	}
 	recovery, err := guestos.LoadMacOSInstallRecovery(s.profile)
 	if err != nil {
-		s.recordInstallRecovery("恢复入口身份校验未通过：" + err.Error())
-		http.Error(w, "安装恢复入口身份校验未通过，原磁盘和安装记录已保留；请稍后重试，仍失败时可在“日志与诊断”导出诊断包排查", http.StatusConflict)
+		s.recordInstallRecovery("Проверка идентичности точки восстановления не пройдена: " + err.Error())
+		http.Error(w, "Проверка идентичности точки восстановления установки не пройдена; исходный диск и запись об установке сохранены. Повторите позже; если ошибка повторится, экспортируйте диагностический пакет в разделе «Логи и диагностика»", http.StatusConflict)
 		return
 	}
 	if s.macosGuest != nil {
-		s.recordInstallRecovery("已有绑定的 macOS 客机，安装恢复入口停用")
-		http.Error(w, "已有绑定的 macOS 客机，无需恢复安装；原磁盘和安装记录已保留", http.StatusConflict)
+		s.recordInstallRecovery("Уже есть привязанная гостевая система macOS; точка восстановления установки отключена")
+		http.Error(w, "Уже есть привязанная гостевая система macOS, восстановление установки не требуется; исходный диск и запись об установке сохранены", http.StatusConflict)
 		return
 	}
 	if recovery == nil {
@@ -83,8 +83,8 @@ func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 				canPrepare, loadErr = guestos.CanRecoverMacOSInstall(s.profile, install.ID)
 			}
 			if loadErr != nil {
-				s.recordInstallRecovery("确认原安装记录可恢复性失败：" + loadErr.Error())
-				http.Error(w, "暂时无法确认原安装记录是否可恢复，请稍后重试；现有数据已保留，可在“日志与诊断”导出诊断包排查", http.StatusConflict)
+				s.recordInstallRecovery("Не удалось проверить восстанавливаемость исходной записи об установке: " + loadErr.Error())
+				http.Error(w, "Сейчас невозможно проверить, восстанавливаема ли исходная запись об установке. Повторите позже; данные сохранены, диагностический пакет можно экспортировать в разделе «Логи и диагностика»", http.StatusConflict)
 				return
 			}
 			jsonReply(w, map[string]bool{"available": false, "can_prepare": canPrepare})
@@ -92,40 +92,40 @@ func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 		}
 		var input guestos.MacLoginRequest
 		if !readJSON(w, r, &input) || input.Action != "prepare" {
-			http.Error(w, "请先确认原安装记录", http.StatusConflict)
+			http.Error(w, "Сначала подтвердите исходную запись об установке", http.StatusConflict)
 			return
 		}
 		install, loadErr := guestos.LoadInstallation(s.profile)
 		if loadErr != nil {
-			s.recordInstallRecovery("读取原安装记录失败：" + loadErr.Error())
-			http.Error(w, "暂时无法读取原安装记录，请稍后重试；现有数据已保留，可在“日志与诊断”导出诊断包排查", http.StatusConflict)
+			s.recordInstallRecovery("Не удалось прочитать исходную запись об установке: " + loadErr.Error())
+			http.Error(w, "Сейчас невозможно прочитать исходную запись об установке. Повторите позже; данные сохранены, диагностический пакет можно экспортировать в разделе «Логи и диагностика»", http.StatusConflict)
 			return
 		}
 		if install == nil || install.System != guestos.MacOS {
-			s.recordInstallRecovery("准备恢复入口被拒绝：没有对应的 macOS 安装记录")
-			http.Error(w, "没有可恢复的 macOS 安装记录，请回到初始化页重新确认", http.StatusConflict)
+			s.recordInstallRecovery("Подготовка точки восстановления отклонена: нет соответствующей записи об установке macOS")
+			http.Error(w, "Нет записи об установке macOS, которую можно восстановить. Вернитесь на страницу инициализации и подтвердите заново", http.StatusConflict)
 			return
 		}
 		credential, loadErr := s.account.macGuestCredentials(r.Context(), install.ID)
 		if loadErr != nil {
-			s.recordInstallRecovery("读取原客机凭据失败：" + loadErr.Error())
-			http.Error(w, "暂时无法读取原客机凭据，请确认 Cage 账密后重试；原账户和磁盘已保留", http.StatusConflict)
+			s.recordInstallRecovery("Не удалось прочитать учётные данные исходной гостевой системы: " + loadErr.Error())
+			http.Error(w, "Сейчас невозможно прочитать учётные данные исходной гостевой системы. Проверьте логин и пароль Cage и повторите; исходная учётная запись и диск сохранены", http.StatusConflict)
 			return
 		}
 		if !guestos.ValidMacOSAccountName(credential.Username) || credential.Password == "" {
-			s.recordInstallRecovery("准备恢复入口被拒绝：原客机凭据不完整")
-			http.Error(w, "原客机凭据不完整，请在设置中确认 Cage 账密后重试；原账户和磁盘已保留", http.StatusConflict)
+			s.recordInstallRecovery("Подготовка точки восстановления отклонена: учётные данные исходной гостевой системы неполны")
+			http.Error(w, "Учётные данные исходной гостевой системы неполны. Проверьте логин и пароль Cage в настройках и повторите; исходная учётная запись и диск сохранены", http.StatusConflict)
 			return
 		}
 		canRecover, loadErr := guestos.CanRecoverMacOSInstall(s.profile, install.ID)
 		if loadErr != nil {
-			s.recordInstallRecovery("核对原客机磁盘身份失败：" + loadErr.Error())
-			http.Error(w, "暂时无法核对原客机磁盘身份，请稍后重试；磁盘和安装记录已保留", http.StatusConflict)
+			s.recordInstallRecovery("Не удалось сверить идентичность диска исходной гостевой системы: " + loadErr.Error())
+			http.Error(w, "Сейчас невозможно сверить идентичность диска исходной гостевой системы. Повторите позже; диск и запись об установке сохранены", http.StatusConflict)
 			return
 		}
 		if !canRecover {
-			s.recordInstallRecovery("准备恢复入口被拒绝：原客机磁盘或机器标识尚未就绪")
-			http.Error(w, "原客机磁盘或机器标识尚未就绪，暂时无法准备恢复入口；磁盘和安装记录已保留", http.StatusConflict)
+			s.recordInstallRecovery("Подготовка точки восстановления отклонена: диск или идентификатор машины исходной гостевой системы ещё не готовы")
+			http.Error(w, "Диск или идентификатор машины исходной гостевой системы ещё не готовы, подготовить точку восстановления сейчас нельзя; диск и запись об установке сохранены", http.StatusConflict)
 			return
 		}
 		s.launch(w, "macos-install-recovery", func() error {
@@ -142,7 +142,7 @@ func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		identity, err := guestos.LoadMacOSProfileOrRecovery(s.profile)
 		if err != nil || identity == nil {
-			http.Error(w, "无法核对恢复客机身份", http.StatusConflict)
+			http.Error(w, "Не удалось сверить идентичность восстанавливаемой гостевой системы", http.StatusConflict)
 			return
 		}
 		jsonReply(w, map[string]any{"available": true, "phase": recovery.Phase, "running": macOSInstanceRunning(filepath.Join(s.profile, "state", "lima", "mac"), identity.Backend)})
@@ -166,7 +166,7 @@ func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 		return
 	case "open", "close", "frame", "click", "key", "scroll":
 	default:
-		http.Error(w, "恢复画面操作无效", http.StatusBadRequest)
+		http.Error(w, "Недопустимая операция экрана восстановления", http.StatusBadRequest)
 		return
 	}
 	input.Setup = true
@@ -177,21 +177,21 @@ func (s *Server) macOSInstallRecovery(w http.ResponseWriter, r *http.Request) {
 	var dial net.Dialer
 	conn, err := dial.DialContext(ctx, "unix", filepath.Join(s.profile, "state", "lima", "mac", "cage-login.sock"))
 	if err != nil {
-		s.recordInstallRecovery("连接恢复画面失败：" + err.Error())
-		http.Error(w, "请先启动恢复客机", http.StatusConflict)
+		s.recordInstallRecovery("Не удалось подключиться к экрану восстановления: " + err.Error())
+		http.Error(w, "Сначала запустите восстанавливаемую гостевую систему", http.StatusConflict)
 		return
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(8 * time.Second))
 	if err := json.NewEncoder(conn).Encode(input); err != nil {
-		s.recordInstallRecovery(fmt.Sprintf("发送恢复画面请求失败：%v", err))
-		http.Error(w, "恢复画面无法响应", http.StatusServiceUnavailable)
+		s.recordInstallRecovery(fmt.Sprintf("Не удалось отправить запрос экрану восстановления: %v", err))
+		http.Error(w, "Экран восстановления не отвечает", http.StatusServiceUnavailable)
 		return
 	}
 	var result guestos.MacLoginReply
 	if err := json.NewDecoder(io.LimitReader(conn, 6<<20)).Decode(&result); err != nil {
-		s.recordInstallRecovery(fmt.Sprintf("读取恢复画面响应失败：%v", err))
-		http.Error(w, "恢复画面无法响应", http.StatusServiceUnavailable)
+		s.recordInstallRecovery(fmt.Sprintf("Не удалось прочитать ответ экрана восстановления: %v", err))
+		http.Error(w, "Экран восстановления не отвечает", http.StatusServiceUnavailable)
 		return
 	}
 	if input.Action == "close" || result.Closed {

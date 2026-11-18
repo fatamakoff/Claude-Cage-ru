@@ -141,7 +141,7 @@ func decodeWindowsWindowReply(data []byte, output any) error {
 		Error string `json:"error"`
 	}
 	if json.Unmarshal(data, &status) != nil {
-		return errors.New("客机应用返回了无效响应")
+		return errors.New("Приложение гостевой системы вернуло недопустимый ответ")
 	}
 	if status.Error != "" {
 		return windowsWindowFailure{code: status.Error}

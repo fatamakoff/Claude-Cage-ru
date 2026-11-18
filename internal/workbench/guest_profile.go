@@ -33,7 +33,7 @@ func (s *Server) linuxPathHasPrefix(path, prefix string) bool {
 
 func (s *Server) guestProfileOptions(w http.ResponseWriter, r *http.Request) {
 	if !s.hasTrustedView(r) {
-		http.Error(w, "请在已信任的 Cage 窗口配置客机", http.StatusForbidden)
+		http.Error(w, "Настраивайте гостевую систему в доверенном окне Cage", http.StatusForbidden)
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -102,7 +102,7 @@ func (s *Server) prepareGuestProfile(options *guestprofile.Options, system strin
 			return err
 		}
 		if options.GPUBackend == "virgl" && (runtime.GOOS != "linux" || containerenv.Configured(s.profile)) {
-			return errors.New("VirGL 目前仅支持 Linux 主机上的 QEMU 客机")
+			return errors.New("VirGL сейчас поддерживается только для гостевых систем QEMU на хостах Linux")
 		}
 	}
 	p, err := guestprofile.Load(s.profile)
@@ -111,10 +111,10 @@ func (s *Server) prepareGuestProfile(options *guestprofile.Options, system strin
 	}
 	if p != nil {
 		if err := p.Options.ValidatePlatform(platform); err != nil {
-			return fmt.Errorf("已保存的配置与所选系统不兼容，请继续安装原系统或创建独立环境：%w", err)
+			return fmt.Errorf("Сохранённая конфигурация несовместима с выбранной системой; продолжите установку исходной системы или создайте отдельную среду: %w", err)
 		}
 		if options != nil && !options.Matches(p.Options) {
-			return errors.New("创建配置已保存，请继续原安装；已有账户和磁盘不会被改名")
+			return errors.New("Конфигурация создания сохранена; продолжите исходную установку. Существующие аккаунты и диски не будут переименованы")
 		}
 		return nil
 	}
@@ -124,7 +124,7 @@ func (s *Server) prepareGuestProfile(options *guestprofile.Options, system strin
 	}
 	if exists {
 		if options != nil {
-			return errors.New("已有环境不能直接更换创建配置，请创建独立环境")
+			return errors.New("Существующую среду нельзя напрямую перевести на другую конфигурацию создания; создайте отдельную среду")
 		}
 		return nil
 	}

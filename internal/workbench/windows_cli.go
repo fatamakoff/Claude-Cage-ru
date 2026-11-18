@@ -30,25 +30,25 @@ func (w *windowsCLIStderr) Write(data []byte) (int, error) {
 // which can contain paths, credentials or untranslated runtime output.
 func windowsCLIProcessError(ctx context.Context, stderr string) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return errors.New("等待 Windows 会话服务响应超时，请稍后重试；持续失败时在设置中导出诊断包")
+		return errors.New("Истекло время ожидания ответа службы сессий Windows, повторите позже; при постоянном сбое экспортируйте пакет диагностики в настройках")
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
-		return errors.New("Windows 会话请求已取消")
+		return errors.New("Запрос сессии Windows отменён")
 	}
 	stage := windowsCLIRelayStage.FindStringSubmatch(stderr)
 	if len(stage) == 2 {
 		switch stage[1] {
 		case "profile":
-			return errors.New("无法读取 Windows 环境配置，请在设置中检查环境状态")
+			return errors.New("Не удалось прочитать конфигурацию среды Windows, проверьте состояние среды в настройках")
 		case "pairing", "server_proof", "client_proof":
-			return errors.New("Windows 环境的安全配对校验未完成，请在设置中检查环境连接")
+			return errors.New("Проверка безопасного сопряжения среды Windows не завершена, проверьте подключение среды в настройках")
 		case "connect":
-			return errors.New("未能连接 Windows 会话服务，请确认 Windows 环境已启动；持续失败时在设置中导出诊断包")
+			return errors.New("Не удалось подключиться к службе сессий Windows, убедитесь, что среда Windows запущена; при постоянном сбое экспортируйте пакет диагностики в настройках")
 		case "hello", "transfer":
-			return errors.New("Windows 会话服务的通信未完成，请确认 Windows 桌面已登录后重试；持续失败时在设置中导出诊断包")
+			return errors.New("Обмен со службой сессий Windows не завершён, убедитесь, что рабочий стол Windows открыт, и повторите попытку; при постоянном сбое экспортируйте пакет диагностики в настройках")
 		}
 	}
-	return errors.New("未能读取 Windows 会话服务的响应，请稍后重试；持续失败时在设置中导出诊断包")
+	return errors.New("Не удалось прочитать ответ службы сессий Windows, повторите позже; при постоянном сбое экспортируйте пакет диагностики в настройках")
 }
 
 func windowsCLIProfileID(profile string) string {
@@ -86,7 +86,7 @@ func (s *Server) windowsCLIRequest(ctx context.Context, request map[string]any, 
 	}
 	data, err := json.Marshal(request)
 	if err != nil || len(data) > 4<<20 {
-		return errors.New("Windows Claude 请求无效")
+		return errors.New("Недопустимый запрос Claude для Windows")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -110,27 +110,27 @@ func (s *Server) windowsCLIRequest(ctx context.Context, request map[string]any, 
 	raw := json.RawMessage(result.Bytes())
 	var wrapper map[string]json.RawMessage
 	if json.Unmarshal(raw, &wrapper) != nil {
-		return errors.New("Windows Claude Code 响应无效")
+		return errors.New("Недопустимый ответ Windows Claude Code")
 	}
 	if wrapper["error"] != nil {
 		var reason string
 		if json.Unmarshal(wrapper["error"], &reason) == nil && reason == "requires_gui_login" {
-			return errors.New("Windows 桌面尚未登录或已锁定，请登录并解锁 Windows 桌面后重试")
+			return errors.New("Рабочий стол Windows не открыт или заблокирован: войдите и разблокируйте рабочий стол Windows, затем повторите попытку")
 		}
-		return errors.New("Windows Claude Code 操作未能完成，原账号与聊天记录已保留")
+		return errors.New("Операцию Windows Claude Code выполнить не удалось, исходный аккаунт и история переписки сохранены")
 	}
 	if value, ok := wrapper["result"]; ok {
 		raw = value
 	}
 	if json.Unmarshal(raw, output) != nil {
-		return errors.New("Windows Claude Code 响应无效")
+		return errors.New("Недопустимый ответ Windows Claude Code")
 	}
 	return nil
 }
 func (s *Server) readWindowsClaudeAccount(ctx context.Context, mode, id, subject string) (claudeGuestSnapshot, error) {
 	var result claudeGuestSnapshot
 	if !validClaudeGuestID(id) {
-		return result, errors.New("Claude 账号 ID 无效")
+		return result, errors.New("Недопустимый идентификатор аккаунта Claude")
 	}
 	err := s.windowsCLIRequest(ctx, map[string]any{"action": "account", "mode": mode, "account": id, "subject": subject}, &result)
 	return result, err
@@ -149,7 +149,7 @@ func (s *Server) windowsProjectForGuest(path string) (*windowsProjectBinding, er
 			return &binding, nil
 		}
 	}
-	return nil, errors.New("Windows 项目授权已断开，请重新连接项目")
+	return nil, errors.New("Авторизация проекта Windows отключена, подключите проект заново")
 }
 func cliWorkspaceWithin(path, root string, windows bool) bool {
 	if windows {
@@ -163,10 +163,10 @@ func (s *Server) createWindowsCLITerminal(input terminalRequest) (*terminalSessi
 		kind = "shell"
 	}
 	if kind != "shell" && kind != "claude" && kind != "claude-login" {
-		return nil, errors.New("终端类型无效")
+		return nil, errors.New("Недопустимый тип терминала")
 	}
 	if kind == "shell" && (input.ClaudeAccountID != "" || input.sharedID != "") {
-		return nil, errors.New("普通终端不能指定 Claude 账号或会话")
+		return nil, errors.New("Обычный терминал не может указывать аккаунт или сессию Claude")
 	}
 	s.mu.Lock()
 	ready, closing, command := s.ready, s.closing, claudeTerminalCommand(s.preferences)
@@ -187,10 +187,10 @@ func (s *Server) createWindowsCLITerminal(input terminalRequest) (*terminalSessi
 		}
 		record = found
 		if record.Switch != nil && record.Switch.Phase == "preparing" {
-			return nil, errors.New("账号交接尚未完成，请先重试或取消交接")
+			return nil, errors.New("Передача аккаунта ещё не завершена, повторите или отмените передачу")
 		}
 		if record.Archived || record.Deleted {
-			return nil, errors.New("此会话已归档或删除，请先从已归档会话恢复")
+			return nil, errors.New("Эта сессия архивирована или удалена, сначала восстановите её из архива")
 		}
 		if existing := s.terminals.get(record.TerminalID); existing != nil {
 			if existing.ownsConversation() {
@@ -207,7 +207,7 @@ func (s *Server) createWindowsCLITerminal(input terminalRequest) (*terminalSessi
 		}
 	}
 	if kind == "claude" && (!sharedCLILauncher(command) || record != nil && record.Launcher != "" && record.Launcher != command) {
-		return nil, errors.New("Windows 原生共享会话支持 claude 或 ccs 配置名启动命令")
+		return nil, errors.New("Нативные общие сессии Windows поддерживают команду запуска с именем профиля claude или ccs")
 	}
 	workspace := s.workspace()
 	var project *windowsProjectBinding
@@ -242,16 +242,16 @@ func (s *Server) createWindowsCLITerminal(input terminalRequest) (*terminalSessi
 		}
 		if selection.ID != "" {
 			if !validClaudeID(selection.ID) || !validClaudeGuestID(selection.GuestID) || login && selection.GuestID == "default" {
-				return nil, errors.New("Claude 账号 ID 无效")
+				return nil, errors.New("Недопустимый идентификатор аккаунта Claude")
 			}
 			if login && s.mobileCLI.activeAccounts()[selection.ID] > 0 {
-				return nil, errors.New("请先结束该账号正在执行的移动 CLI 轮次，再重新登录")
+				return nil, errors.New("Сначала завершите выполняемый сейчас мобильный CLI-раунд этого аккаунта, затем войдите снова")
 			}
 			if existing, conflict := s.terminals.existingClaudeLogin(selection.ID, login); existing != nil || conflict != nil {
 				return existing, conflict
 			}
 			if !login && selection.Subject == "" {
-				return nil, errors.New("Claude 账号状态已变化，请重试")
+				return nil, errors.New("Состояние аккаунта Claude изменилось, повторите попытку")
 			}
 			if login {
 				finished = func() {
@@ -283,7 +283,7 @@ func (s *Server) createWindowsCLITerminal(input terminalRequest) (*terminalSessi
 			conversation = found
 			var value map[string]any
 			if json.Unmarshal([]byte(payload), &value) != nil {
-				return nil, errors.New("Claude 会话请求无效")
+				return nil, errors.New("Недопустимый запрос сессии Claude")
 			}
 			request["conversation"] = value
 			folders, err := s.projectFolders(workspace)
