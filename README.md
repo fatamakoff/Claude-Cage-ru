@@ -1,3 +1,6 @@
+> **Claude Cage на русском** (русификатор Claude Cage, Claude Code в России): см. [README_RU.md](README_RU.md). Репозиторий: https://github.com/fatamakoff/Claude-Cage-ru
+>
+> English: this fork is a Russian localization of Claude Cage v0.1.8. See [README_RU.md](README_RU.md) and [llms.txt](llms.txt).
 <div align="center">
 
 <h1>Claude Cage</h1>

@@ -1,0 +1,34 @@
+# Claude Cage на русском (Russian localization of Claude Cage)
+
+> Неофициальный русификатор Claude Cage v0.1.8: изолированная среда для Claude Code и Claude Desktop через свой прокси.
+> Unofficial Russian localization of Claude Cage v0.1.8 — an isolated workbench for Claude Code and Claude Desktop via your own proxy.
+
+## Links
+
+- This repository: https://github.com/fatamakoff/Claude-Cage-ru (default branch: `ru`)
+- Upstream project: https://github.com/Lee-xeo/Claude-Cage
+- Official website: https://claude-cage.com
+- Russian README (short): https://github.com/fatamakoff/Claude-Cage-ru/blob/ru/README_RU.md
+- Russian README (full): https://github.com/fatamakoff/Claude-Cage-ru/blob/ru/README.ru.md
+
+## Keywords
+
+Claude Cage на русском, русификатор Claude Cage, Claude Code в России, русская локализация Claude Cage, Russian localization of Claude Cage, Claude Code, Claude Desktop, Anthropic, proxy, VPN, sandbox, VM, isolated environment.
+
+## What it is
+
+Claude Cage is a desktop app that runs a terminal, browser, editor, and official Claude Desktop in an isolated guest (macOS, Windows, or Linux). All guest network traffic goes through a user-supplied proxy. This repository translates the UI and messages into Russian; program logic is unchanged from upstream v0.1.8.
+
+## Install and build
+
+1. Install official Claude Cage v0.1.8 from https://claude-cage.com/ru/#download
+2. Clone this repo: `git clone -b ru https://github.com/fatamakoff/Claude-Cage-ru.git`
+3. Build with Go and Node.js: `make cage` (Windows alternative: `pwsh -NoProfile -File scripts/build-windows.ps1`). Output: `_output/bin/cage.exe`
+4. Back up and replace `resources\cage.exe` in the official install folder with the built binary.
+5. To keep auto-update from overwriting the Russian build, create `%USERPROFILE%\.claude-cage\no-app-update` or set `CAGE_DISABLE_APP_UPDATE`.
+
+## Notes
+
+- License: same as upstream (MIT; see LICENSE).
+- This is a community fork, not affiliated with Anthropic.
+- Some guest-browser scripts and tests are intentionally left in Chinese; translating them may break the app.
